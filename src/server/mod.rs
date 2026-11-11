@@ -39,10 +39,14 @@ pub fn launch(app: fn() -> Element) {
         let work_routes = aos_work::http::router_with_auth(work.clone(), auth_store.clone());
         let nora_routes = aos_nora::http::router_with_auth(nora.clone(), auth_store.clone());
         let call_routes = aos_nora::call::http::router_with_auth(calls, auth_store.clone());
+        // Phone notifications: alarms, rings, approvals and important inbox items reach the phone.
+        let push = aos_push::Push::start(&config.db_path)?;
+        push.watch(nora.bus().subscribe(), work.subscribe(), Some(inbox.subscribe_important()));
+        let push_routes = aos_push::http::router(push, auth_store.clone());
         // Dioxus server functions live under /api/ and need a device token, like /api/work.
         let ui = aos_server::auth::require_device_under(dioxus::server::router(app), auth_store, "/api/");
         // API routes first; the Dioxus router brings assets, server functions and the SSR fallback.
-        let served = aos_server::serve_with(config, registry, move |api| api.merge(work_routes).merge(nora_routes).merge(call_routes).merge(ui)).await;
+        let served = aos_server::serve_with(config, registry, move |api| api.merge(work_routes).merge(nora_routes).merge(call_routes).merge(push_routes).merge(ui)).await;
         nora.stop();
         work.stop_all();
         inbox.stop();

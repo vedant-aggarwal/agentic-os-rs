@@ -4,6 +4,7 @@ mod components;
 #[allow(dead_code)]
 mod data;
 mod live;
+mod native;
 mod pages;
 mod state;
 mod theme;
@@ -16,5 +17,9 @@ fn main() {
     #[cfg(feature = "server")]
     server::launch(app::App);
     #[cfg(not(feature = "server"))]
-    dioxus::launch(app::App);
+    {
+        // Push hooks go in before UIApplicationMain, so a tap that launched the app is not lost.
+        native::Native::install();
+        dioxus::launch(app::App);
+    }
 }

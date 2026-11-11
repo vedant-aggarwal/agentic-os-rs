@@ -31,6 +31,7 @@ use serde::{Deserialize, Serialize};
 use serde_json::{Value, json};
 
 use crate::auth::{ApiError, DeviceAuth};
+use crate::hinglish::{self, Script};
 use crate::state::AppState;
 
 const ENDPOINT: &str = "https://chatgpt.com/backend-api/transcribe";
@@ -58,6 +59,8 @@ pub trait Transcribe: Send + Sync {
 pub struct Voice {
     pub dir: PathBuf,
     pub engine: Arc<dyn Transcribe>,
+    /// What to do with Devanagari in a transcript (`AOS_VOICE_SCRIPT`).
+    pub script: Script,
 }
 
 impl Voice {
@@ -65,11 +68,16 @@ impl Voice {
         let dir = std::env::var_os("AOS_VOICE_DIR")
             .map(PathBuf::from)
             .unwrap_or_else(|| aos_core::paths::aos_home().join("voice"));
-        Voice { dir, engine: Arc::new(Codex) }
+        Voice { dir, engine: Arc::new(Codex), script: Script::from_env() }
     }
 
     pub fn with_engine(dir: PathBuf, engine: Arc<dyn Transcribe>) -> Voice {
-        Voice { dir, engine }
+        Voice { dir, engine, script: Script::Roman }
+    }
+
+    /// The transcript in the configured script: Roman Hinglish by default.
+    pub async fn shape(&self, text: String) -> String {
+        hinglish::apply(text, self.script, hinglish::rewrite).await
     }
 }
 
@@ -119,7 +127,11 @@ fn ext_of(mime: &str) -> &'static str {
 }
 
 async fn status(State(state): State<AppState>, _a: DeviceAuth) -> Json<Value> {
-    Json(state.voice.engine.status())
+    let mut v = state.voice.engine.status();
+    if let Some(o) = v.as_object_mut() {
+        o.insert("script".into(), json!(state.voice.script.name()));
+    }
+    Json(v)
 }
 
 async fn put_chunk(
@@ -217,6 +229,7 @@ async fn finish(
         texts.push(t.trim().to_string());
     }
     let text = texts.into_iter().filter(|t| !t.is_empty()).collect::<Vec<_>>().join(" ");
+    let text = state.voice.shape(text).await;
     let saved = Saved { text: text.clone(), parts: parts.len() };
     let _ = tokio::fs::write(dir.join("result.json"), serde_json::to_vec(&saved).unwrap_or_default()).await;
     Ok(Json(json!({ "text": text, "parts": parts.len() })))
@@ -237,7 +250,8 @@ async fn one_shot(State(state): State<AppState>, _a: DeviceAuth, headers: Header
         return Err(ApiError::bad_request("empty audio"));
     }
     let text = state.voice.engine.transcribe(body.to_vec(), base_mime(&headers)).await.map_err(voice_api_error)?;
-    Ok(Json(json!({ "text": text.trim() })))
+    let text = state.voice.shape(text.trim().to_string()).await;
+    Ok(Json(json!({ "text": text })))
 }
 
 fn voice_api_error(e: VoiceError) -> ApiError {

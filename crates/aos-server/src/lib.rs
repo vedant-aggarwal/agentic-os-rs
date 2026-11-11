@@ -7,6 +7,7 @@
 
 pub mod auth;
 pub mod events;
+pub mod hinglish;
 pub mod limit;
 pub mod routes;
 pub mod state;

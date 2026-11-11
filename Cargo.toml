@@ -28,16 +28,22 @@ aos-inbox = { path = "crates/aos-inbox", optional = true }
 
 # Nora runtime (thread, Claude engine, Grok read side, memory, alarms, heartbeat). Server only.
 aos-nora = { path = "crates/aos-nora", optional = true }
+# Phone notifications (APNs sender, push-token registry). Server only.
+aos-push = { path = "crates/aos-push", optional = true }
 
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]
 dirs = { workspace = true }
+
+# Native push plugin (src/ios/push) through #[manganis::ffi]. Already in the tree through dioxus.
+[target.'cfg(target_os = "ios")'.dependencies]
+manganis = "0.7.10"
 
 [features]
 default = []
 web = ["dioxus/web"]
 desktop = ["dioxus/desktop"]
 mobile = ["dioxus/mobile"]
-server = ["dioxus/server", "dep:aos-server", "dep:tokio", "aos-work/runtime", "dep:aos-nora", "dep:aos-inbox"]
+server = ["dioxus/server", "dep:aos-server", "dep:tokio", "aos-work/runtime", "dep:aos-nora", "dep:aos-inbox", "dep:aos-push"]
 
 [workspace]
 members = [".", "crates/*"]

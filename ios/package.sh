@@ -23,6 +23,8 @@ set_key CFBundlePackageType string APPL
 set_key CFBundleInfoDictionaryVersion string 6.0
 set_key MinimumOSVersion string "$MIN_IOS"
 set_key ITSAppUsesNonExemptEncryption bool false
+# AlarmKit (iOS 26) asks for this text when it first schedules an alarm.
+set_key NSAlarmKitUsageDescription string "Agentic OS rings the alarms you and Nora set, even in silent mode."
 
 # iPhone only (an iPad build would need every orientation and a launch storyboard).
 $PB -c "Delete :UIDeviceFamily" "$PL" >/dev/null 2>&1 || true
@@ -69,6 +71,14 @@ echo "Mach-O files in the bundle:"
 find "$APP" -type f -print0 | while IFS= read -r -d '' f; do
   case "$(file -b "$f")" in *Mach-O*) echo "  ${f#$APP/}";; esac
 done
+
+# The push / alarm plugin (src/ios/push) is built by dx into this framework. Without it the app has no
+# push token and no local alarms, so stop here instead of shipping a build that looks fine.
+if [ ! -d "$APP/Frameworks/DioxusSwiftPlugins.framework" ] && [ "${ALLOW_NO_PUSH:-}" != "1" ]; then
+  echo "Frameworks/DioxusSwiftPlugins.framework is missing: dx did not build src/ios/push (set ALLOW_NO_PUSH=1 to ship without push)"
+  ls -la "$APP" "$APP/Frameworks" 2>/dev/null || true
+  exit 1
+fi
 
 # 1) Sign with the run's Apple Distribution identity, inside-out, profile embedded.
 cp "$PROFILE_PATH" "$APP/embedded.mobileprovision"
@@ -136,6 +146,13 @@ echo "Profile: $($PB -c 'Print :Name' "$TMP/profile.plist"), get-task-allow $($P
 codesign -d --entitlements :- "$CAPP" 2>/dev/null > "$TMP/ent.plist"
 echo "Signed entitlements:"; plutil -p "$TMP/ent.plist" | sed -E 's/[A-Z0-9]{10}\./TEAM./g'
 [ "$($PB -c 'Print :get-task-allow' "$TMP/ent.plist" 2>/dev/null)" = "false" ] || { echo "get-task-allow is not false"; exit 1; }
+# Push: when the profile allows it, the exported app must still carry aps-environment = production.
+if $PB -c "Print :Entitlements:aps-environment" "$TMP/profile.plist" >/dev/null 2>&1; then
+  [ "$($PB -c 'Print :aps-environment' "$TMP/ent.plist" 2>/dev/null)" = "production" ] || { echo "aps-environment missing after export"; exit 1; }
+  echo "Push entitlement: aps-environment production"
+else
+  echo "Warning: the profile has no aps-environment (Push Notifications off on the App ID); this build gets no pushes"
+fi
 
 cp "$IPA" "$OUT"
 ls -la "$OUT"

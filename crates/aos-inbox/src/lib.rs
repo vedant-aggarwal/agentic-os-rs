@@ -39,6 +39,8 @@ pub struct Inbox {
     pub triage: triage::Triage,
     pub whatsapp: whatsapp::WhatsappState,
     pub laya: proc::ServiceHandle,
+    /// Items the triage model marked for Nora (yes from Laya, not the fallback). Push listens here.
+    important: tokio::sync::broadcast::Sender<Item>,
     cancel: CancellationToken,
 }
 
@@ -53,6 +55,7 @@ impl Inbox {
             store,
             whatsapp: whatsapp::WhatsappState::new(),
             laya: proc::ServiceHandle::new(),
+            important: tokio::sync::broadcast::channel(64).0,
             cancel: CancellationToken::new(),
         };
         inbox.spawn_workers();
@@ -62,6 +65,11 @@ impl Inbox {
     /// End every worker and child process. Safe to call twice.
     pub fn stop(&self) {
         self.cancel.cancel();
+    }
+
+    /// Items the local model marked important (never the "yes" fallback while it is down).
+    pub fn subscribe_important(&self) -> tokio::sync::broadcast::Receiver<Item> {
+        self.important.subscribe()
     }
 
     pub fn cancel_token(&self) -> CancellationToken {
@@ -95,6 +103,9 @@ impl Inbox {
         let store = self.store.clone();
         let id = item.id.clone();
         let _ = tokio::task::spawn_blocking(move || store::set_triage(&store, &id, v.score, v.yes, v.by)).await;
+        if v.yes && v.by != "fallback" {
+            let _ = self.important.send(item.clone());
+        }
     }
 
     fn spawn_workers(&self) {
@@ -173,6 +184,7 @@ mod tests {
             store,
             whatsapp: whatsapp::WhatsappState::new(),
             laya: proc::ServiceHandle::new(),
+            important: tokio::sync::broadcast::channel(64).0,
             cancel: CancellationToken::new(),
         }
     }

@@ -130,6 +130,7 @@ def setup():
     match = [b for b in bundles if b["attributes"]["identifier"] == bundle]
     if not match:
         raise SystemExit("The bundle ID is not registered in the Apple Developer account.")
+    ensure_capabilities(match[0]["id"])
     name = f"Agentic OS RS CI {int(time.time())}"
     prof = call("POST", "/profiles", {"data": {"type": "profiles",
         "attributes": {"name": name, "profileType": "IOS_APP_STORE"},
@@ -156,6 +157,16 @@ def setup():
            "keychain-access-groups": [f"{team}.{bundle}"]}
     if granted.get("beta-reports-active"):
         ent["beta-reports-active"] = True
+    # Push (APNs) and time-sensitive notifications, when the App ID has them. TestFlight and the
+    # App Store use the production APNs environment.
+    if granted.get("aps-environment"):
+        ent["aps-environment"] = "production"
+    if granted.get("com.apple.developer.usernotifications.time-sensitive"):
+        ent["com.apple.developer.usernotifications.time-sensitive"] = True
+    missing = [k for k in ("aps-environment", "com.apple.developer.usernotifications.time-sensitive") if k not in ent]
+    if missing:
+        print(f"Warning: the App Store profile does not grant {', '.join(missing)}; enable it on the App ID "
+              f"at developer.apple.com (Identifiers > the app > Capabilities).")
     ent_path = os.path.join(TMP, "app.entitlements")
     with open(ent_path, "wb") as f:
         plistlib.dump(ent, f)
@@ -163,6 +174,28 @@ def setup():
           f"entitlements {', '.join(sorted(ent))}")
     env_out(SIGN_IDENTITY=m.group(1), PROFILE_PATH=profile_path, ENTITLEMENTS=ent_path,
             PROFILE_NAME=name, PROFILE_UUID=uid, SIGN_KEYCHAIN=kc)
+
+
+def ensure_capabilities(bundle_id_resource):
+    """Push Notifications and Time Sensitive Notifications on the App ID, so new profiles carry
+    aps-environment. Best effort: an API key without the right role only gets a warning."""
+    try:
+        have = {c["attributes"].get("capabilityType")
+                for c in call("GET", f"/bundleIds/{bundle_id_resource}/bundleIdCapabilities")["data"]}
+    except SystemExit as e:
+        print(f"Could not read the App ID capabilities: {str(e)[:200]}")
+        return
+    print(f"App ID capabilities: {', '.join(sorted(t for t in have if t)) or 'none'}")
+    for cap in ("PUSH_NOTIFICATIONS", "USERNOTIFICATIONS_TIMESENSITIVE"):
+        if cap in have:
+            continue
+        try:
+            call("POST", "/bundleIdCapabilities", {"data": {"type": "bundleIdCapabilities",
+                 "attributes": {"capabilityType": cap},
+                 "relationships": {"bundleId": {"data": {"type": "bundleIds", "id": bundle_id_resource}}}}})
+            print(f"Enabled {cap} on the App ID")
+        except SystemExit as e:
+            print(f"Could not enable {cap}: {str(e)[:200]}")
 
 
 def cleanup():
