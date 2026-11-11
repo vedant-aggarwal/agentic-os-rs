@@ -1,119 +1,114 @@
-//! Navigation chrome. `Rail` shows from tablet up, `Dock` (capture row + tab bar) on phones.
+//! Navigation: a floating tab bar on phones, a slim sidebar from 1100 px.
 //! Both are always rendered; CSS picks one by width.
 
 use dioxus::prelude::*;
 
 use crate::app::Route;
-use crate::components::capture_bar::CaptureBar;
 use crate::components::icon::{Icon, IconName};
-use crate::components::press::use_press;
-use crate::state::{Overlay, ShellState};
+use crate::state::{AppState, SheetKind};
 
-fn nav_class(base: &str, active: bool) -> String {
-    if active {
-        format!("{base} active")
-    } else {
-        base.to_string()
+pub const FACE_L1: Asset = asset!("/assets/img/me-l1-face.webp");
+
+#[derive(Clone, Copy, PartialEq)]
+struct Tab {
+    label: &'static str,
+    icon: IconName,
+}
+
+const TABS: [Tab; 5] = [
+    Tab { label: "Today", icon: IconName::Sun },
+    Tab { label: "Inbox", icon: IconName::Inbox },
+    Tab { label: "Life", icon: IconName::Sprout },
+    Tab { label: "Work", icon: IconName::Terminal },
+    Tab { label: "Mission", icon: IconName::Mountain },
+];
+
+fn tab_route(i: usize) -> Route {
+    match i {
+        1 => Route::Inbox {},
+        2 => Route::Life {},
+        3 => Route::Work {},
+        4 => Route::Mission {},
+        _ => Route::Today { lock: None, mode: None },
+    }
+}
+
+fn tab_index(route: &Route) -> usize {
+    match route {
+        Route::Today { .. } => 0,
+        Route::Inbox {} => 1,
+        Route::Life {} => 2,
+        Route::Work {} => 3,
+        Route::Mission {} => 4,
+        Route::Hero3dDemo { .. } => 0,
     }
 }
 
 #[component]
-pub fn Rail() -> Element {
+pub fn TabBar() -> Element {
     let route = use_route::<Route>();
-    let mut shell = use_context::<ShellState>();
-    let is_today = matches!(route, Route::Today { .. });
+    let state = use_context::<AppState>();
+    let active = tab_index(&route);
+    // Out of the way while a goal or Nora fills the screen.
+    let hidden = (state.goal)().is_some() || (state.nora)();
 
     rsx! {
-        nav { class: "rail", aria_label: "Sections",
-            div { class: "rail-mark", aria_hidden: "true",
-                Icon { name: IconName::Sunrise, size: 18, stroke: 2.0 }
-            }
-            div { class: "rail-nav",
-                Link { to: shell.today_route(), class: nav_class("rail-item", is_today), title: "Today", aria_label: "Today",
-                    Icon { name: IconName::Home, size: 20 }
+        nav {
+            class: "tabbar",
+            class: if hidden { "is-hidden" },
+            aria_label: "Sections",
+            style: "--tab: {active}",
+            span { class: "tab-pill", aria_hidden: "true" }
+            for (i, tab) in TABS.iter().enumerate() {
+                Link {
+                    key: "{tab.label}",
+                    to: tab_route(i),
+                    class: if i == active { "tab active" } else { "tab" },
+                    aria_current: if i == active { "page" },
+                    Icon { name: tab.icon, size: 22, stroke: if i == active { 2.0 } else { 1.6 } }
+                    span { class: "tab-label", "{tab.label}" }
                 }
-                Link { to: Route::Work {}, class: nav_class("rail-item", route == Route::Work {}), title: "Work", aria_label: "Work",
-                    Icon { name: IconName::Briefcase, size: 20 }
-                }
-                Link { to: Route::Nora {}, class: nav_class("rail-item", route == Route::Nora {}), title: "Nora", aria_label: "Nora",
-                    Icon { name: IconName::Message, size: 20 }
-                }
-                Link { to: Route::Brain {}, class: nav_class("rail-item", route == Route::Brain {}), title: "Brain", aria_label: "Brain",
-                    Icon { name: IconName::Brain, size: 20 }
-                }
-            }
-            div { class: "rail-spacer" }
-            button {
-                class: "rail-item",
-                r#type: "button",
-                title: "Wave",
-                aria_label: "Wave",
-                onclick: move |_| shell.open(Overlay::Wave),
-                Icon { name: IconName::Waves, size: 20 }
-            }
-            button {
-                class: "avatar",
-                r#type: "button",
-                aria_label: "Settings",
-                onclick: move |_| shell.open(Overlay::Placeholder("Settings")),
-                "V"
             }
         }
     }
 }
 
 #[component]
-pub fn Dock() -> Element {
+pub fn Sidebar() -> Element {
     let route = use_route::<Route>();
-    let mut shell = use_context::<ShellState>();
-    let mut press = use_press();
-    let is_today = matches!(route, Route::Today { .. });
+    let mut state = use_context::<AppState>();
+    let active = tab_index(&route);
 
     rsx! {
-        div { class: "dock",
-            div { class: "dock-row",
-                CaptureBar {}
-                // Tap: chat. Hold: call.
-                button {
-                    class: "nora-btn",
-                    r#type: "button",
-                    aria_label: "Nora. Tap to chat, hold to call",
-                    onpointerdown: move |_| press.down(),
-                    onpointercancel: move |_| press.cancel(),
-                    onpointerleave: move |_| press.cancel(),
-                    onpointerup: move |_| match press.up() {
-                        Some(true) => shell.open(Overlay::NoraCall),
-                        Some(false) => shell.open(Overlay::Nora),
-                        None => {}
-                    },
-                    oncontextmenu: move |e| e.prevent_default(),
-                    "N"
-                }
-                button {
-                    class: "wave-btn",
-                    r#type: "button",
-                    aria_label: "Wave",
-                    onclick: move |_| shell.open(Overlay::Wave),
-                    Icon { name: IconName::Waves, size: 22 }
+        nav { class: "sidebar", aria_label: "Sections",
+            button {
+                class: "sb-btn sb-capture",
+                r#type: "button",
+                title: "Capture",
+                aria_label: "Capture",
+                onclick: move |_| state.open_sheet(SheetKind::Capture),
+                Icon { name: IconName::Plus, size: 20, stroke: 2.0 }
+            }
+            div { class: "sb-nav",
+                for (i, tab) in TABS.iter().enumerate() {
+                    Link {
+                        key: "{tab.label}",
+                        to: tab_route(i),
+                        class: if i == active { "sb-btn active" } else { "sb-btn" },
+                        title: "{tab.label}",
+                        aria_label: "{tab.label}",
+                        aria_current: if i == active { "page" },
+                        Icon { name: tab.icon, size: 20, stroke: if i == active { 2.0 } else { 1.6 } }
+                    }
                 }
             }
-            nav { class: "tabbar", aria_label: "Tabs",
-                Link { to: shell.today_route(), class: nav_class("tab", is_today),
-                    Icon { name: IconName::Home, size: 22 }
-                    span { "Today" }
-                }
-                Link { to: Route::Work {}, class: nav_class("tab", route == Route::Work {}),
-                    Icon { name: IconName::Briefcase, size: 22 }
-                    span { "Work" }
-                }
-                Link { to: Route::Nora {}, class: nav_class("tab", route == Route::Nora {}),
-                    Icon { name: IconName::Message, size: 22 }
-                    span { "Nora" }
-                }
-                Link { to: Route::Brain {}, class: nav_class("tab", route == Route::Brain {}),
-                    Icon { name: IconName::Brain, size: 22 }
-                    span { "Brain" }
-                }
+            div { class: "sb-spacer" }
+            button {
+                class: "sb-avatar",
+                r#type: "button",
+                aria_label: "You",
+                onclick: move |_| state.open_sheet(SheetKind::Profile),
+                img { src: FACE_L1, alt: "" }
             }
         }
     }

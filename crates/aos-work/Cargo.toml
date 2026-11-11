@@ -1,0 +1,53 @@
+[package]
+name = "aos-work"
+version = "0.1.0"
+edition = "2024"
+description = "Agentic OS Work tab: projects, Claude and Codex sessions, approvals, diffs (a Rust port of T3 Code's model)"
+license = "MIT"
+
+[features]
+default = ["runtime"]
+# The session supervisor, SQLite tables, HTTP routes and registry tools. Off for the wasm client,
+# which only needs the shared types in `types`.
+runtime = [
+    "dep:aos-core",
+    "dep:aos-tools",
+    "dep:tokio",
+    "dep:tokio-stream",
+    "dep:rusqlite",
+    "dep:axum",
+    "dep:futures",
+    "dep:schemars",
+    "dep:tracing",
+    "dep:uuid",
+    "dep:thiserror",
+    "dep:dirs",
+    "dep:process-wrap",
+    "dep:windows",
+]
+
+[dependencies]
+serde.workspace = true
+serde_json.workspace = true
+
+aos-core = { workspace = true, optional = true }
+aos-tools = { workspace = true, optional = true }
+tokio = { workspace = true, features = ["process", "io-util"], optional = true }
+tokio-stream = { workspace = true, optional = true }
+rusqlite = { workspace = true, optional = true }
+axum = { workspace = true, optional = true }
+futures = { workspace = true, optional = true }
+schemars = { workspace = true, optional = true }
+tracing = { workspace = true, optional = true }
+thiserror = { workspace = true, optional = true }
+dirs = { workspace = true, optional = true }
+uuid = { version = "1.29", features = ["v7"], optional = true }
+# Tree-kill for the CLIs: Job Object on Windows, process group on Unix (tech-stack R12).
+process-wrap = { version = "10.0.1", default-features = false, features = ["tokio1", "job-object", "kill-on-drop", "creation-flags", "process-group"], optional = true }
+
+# Only to name CREATE_NO_WINDOW for process-wrap's `CreationFlags` (same version process-wrap uses).
+[target.'cfg(windows)'.dependencies]
+windows = { version = "0.62.2", default-features = false, features = ["Win32_System_Threading"], optional = true }
+
+[dev-dependencies]
+tokio = { workspace = true }

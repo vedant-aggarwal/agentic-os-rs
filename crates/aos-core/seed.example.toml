@@ -1,0 +1,80 @@
+# Example personal seed. Copy to %USERPROFILE%\.aos\seed.local.toml (outside the repo) and edit.
+# `aos seed` applies it; a new database applies it automatically. Every entry is an upsert by id.
+
+# Rename or add pillars. The defaults are body, wealth, mind.
+[[pillar]]
+id = "mind"
+name = "Mind"
+sort = 3
+
+# Add or rename areas. `pillar` is a pillar id.
+[[area]]
+id = "music"
+name = "Music"
+pillar = "mind"
+sort = 10
+
+# Projects group tasks inside an area.
+[[project]]
+id = "site"
+name = "Personal website"
+area = "work"
+
+# Habits. `anchor = true` marks the one streak that matters most.
+# `floor` is the smallest version that still counts.
+[[habit]]
+id = "journal"
+name = "Journal"
+area = "mindset"
+cue = "after I get into bed"
+normal = "a full page"
+floor = "one honest sentence"
+anchor = true
+
+[[habit]]
+id = "read"
+name = "Read"
+area = "reading"
+cue = "after dinner"
+normal = "20 pages"
+floor = "1 page"
+
+[[habit]]
+id = "train"
+name = "Train"
+area = "fitness"
+cadence = "mon,tue,thu,fri"
+normal = "full session"
+floor = "10 push-ups"
+xp = 10
+
+# Goals: the concrete thing a pillar works toward. Money is in paise (Rs 1 = 100 paise).
+# Earned amounts change through `aos goal earn`; re-applying the seed keeps them.
+[[goal]]
+id = "wealth-goal"
+name = "A new laptop"
+pillar = "wealth"
+specs = ["16-inch screen", "32 GB memory"]
+why = "The tool I build everything else with."
+images = ["goals/laptop.jpg"]
+target_paise = 15000000   # Rs 1,50,000
+
+[[goal]]
+id = "body-goal"
+name = "Run a half marathon"
+pillar = "body"
+why = "Prove to myself I can finish hard things."
+progress = 0.1
+
+# Who the app is for. The `profile` tool serves this to the app (top bar name, hero goals).
+[profile]
+name = "Sam"
+companion = true
+private_habits = []          # habit ids shown only in private mode
+
+# One hero slot per pillar: physical, money, mind. `goal` is a [[goal]] id.
+[[profile.hero]]
+slot = "money"
+goal = "wealth-goal"
+variant = "Silver, 32 GB"
+about = "Work and money."

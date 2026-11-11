@@ -1,218 +1,181 @@
-//! Local UI state. Two layers: the shell (dock, rail, overlays reachable everywhere)
-//! and the Today page (ticks, mode, sheets that need the day's data).
-
-use std::collections::HashMap;
+//! App-wide UI state. One context, shared by the shell, the home and every layer.
+//! Layers (sheets, Nora, goal and pillar pages) stay mounted; these signals only
+//! say which one is open, so CSS can animate both the way in and the way out.
 
 use dioxus::prelude::*;
 
-use crate::app::Route;
-use crate::data::{sample, DayState, Mode, Time};
-use crate::theme::ThemePref;
+use crate::data::goal::Goal;
+use crate::data::mood::Checkin;
 
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
-pub enum SkipReason {
-    Tired,
-    Forgot,
-    TooBig,
-    Avoided,
-    Phone,
-    Sick,
-    Other,
-}
-
-impl SkipReason {
-    pub const ALL: [SkipReason; 7] = [
-        SkipReason::Tired,
-        SkipReason::Forgot,
-        SkipReason::TooBig,
-        SkipReason::Avoided,
-        SkipReason::Phone,
-        SkipReason::Sick,
-        SkipReason::Other,
-    ];
-
-    pub fn label(self) -> &'static str {
-        match self {
-            SkipReason::Tired => "Tired",
-            SkipReason::Forgot => "Forgot",
-            SkipReason::TooBig => "Too big",
-            SkipReason::Avoided => "Avoided it",
-            SkipReason::Phone => "Phone, reels",
-            SkipReason::Sick => "Sick",
-            SkipReason::Other => "Other",
-        }
-    }
-}
-
-#[derive(Clone, Copy, PartialEq, Eq, Debug, Default)]
-pub enum ItemStatus {
-    #[default]
+pub enum Lock {
+    Locked,
+    /// Face ID accepted; the glyph plays its tick, then the home reveals.
+    Opening,
     Open,
-    Done,
-    /// The floor version was done. Counts.
-    Floor,
-    Skipped(SkipReason),
 }
 
-impl ItemStatus {
-    pub fn counts_done(self) -> bool {
-        matches!(self, ItemStatus::Done | ItemStatus::Floor)
-    }
-}
-
-/// Overlays the dock and rail can open on any page.
-#[derive(Clone, Copy, PartialEq, Eq, Debug)]
-pub enum Overlay {
-    Nora,
-    NoraCall,
-    Wave,
-    Placeholder(&'static str),
-}
-
-#[derive(Clone, Copy)]
-pub struct ShellState {
-    pub overlay: Signal<Option<Overlay>>,
-    pub captures: Signal<Vec<String>>,
-    /// Bumped per capture so the "Saved" toast replays.
-    pub capture_seq: Signal<u32>,
-    /// Dev params of the last Today view, so the Today tab returns to the same screen.
-    pub today_params: Signal<(Option<DayState>, Option<ThemePref>)>,
-}
-
-impl ShellState {
-    pub fn new() -> Self {
-        ShellState {
-            overlay: Signal::new(None),
-            captures: Signal::new(Vec::new()),
-            capture_seq: Signal::new(0),
-            today_params: Signal::new((None, None)),
+impl Lock {
+    pub fn slug(self) -> &'static str {
+        match self {
+            Lock::Locked => "locked",
+            Lock::Opening => "opening",
+            Lock::Open => "open",
         }
     }
-
-    pub fn open(&mut self, overlay: Overlay) {
-        self.overlay.set(Some(overlay));
-    }
-
-    pub fn close(&mut self) {
-        self.overlay.set(None);
-    }
-
-    pub fn capture(&mut self, text: String) {
-        self.captures.write().push(text);
-        *self.capture_seq.write() += 1;
-    }
-
-    pub fn today_route(&self) -> Route {
-        let (state, theme) = (self.today_params)();
-        Route::Today { state, theme }
-    }
 }
 
-/// Sheets that belong to the Today page.
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
-pub enum TodaySheet {
+pub enum SheetKind {
     Levels,
-    Mode,
-    Skip(&'static str),
-    Vision,
-    PickThree,
-    Handoff,
+    Mood,
+    Call,
+    Wave,
+    Capture,
+    Print,
+    Launch,
+    Profile,
+}
+
+impl SheetKind {
+    pub fn slug(self) -> &'static str {
+        match self {
+            SheetKind::Levels => "levels",
+            SheetKind::Mood => "mood",
+            SheetKind::Call => "call",
+            SheetKind::Wave => "wave",
+            SheetKind::Capture => "capture",
+            SheetKind::Print => "print",
+            SheetKind::Launch => "launch",
+            SheetKind::Profile => "profile",
+        }
+    }
+
+    pub fn title(self) -> &'static str {
+        match self {
+            SheetKind::Levels => "Level roadmap",
+            SheetKind::Mood => "Check in",
+            SheetKind::Call => "Calling Nora",
+            SheetKind::Wave => "Wave",
+            SheetKind::Capture => "Capture",
+            SheetKind::Print => "Print today's plan",
+            SheetKind::Launch => "Launch work",
+            SheetKind::Profile => "You",
+        }
+    }
 }
 
 #[derive(Clone, Copy)]
-pub struct TodayState {
-    pub day: DayState,
-    pub now: Time,
-    pub mode: Signal<Mode>,
-    pub status: Signal<HashMap<&'static str, ItemStatus>>,
-    pub xp_today: Signal<u32>,
-    pub timeline_open: Signal<bool>,
-    pub dismissed: Signal<Vec<&'static str>>,
-    pub sheet: Signal<Option<TodaySheet>>,
-    pub read_done: Signal<bool>,
-    pub three_picked: Signal<bool>,
+pub struct AppState {
+    pub lock: Signal<Lock>,
+    pub safe: Signal<bool>,
+    pub sheet: Signal<Option<SheetKind>>,
+    /// Last sheet opened. Stays set while the sheet slides out.
+    pub sheet_shown: Signal<SheetKind>,
+    /// Bumped on every open, so a sheet's own state starts fresh.
+    pub sheet_seq: Signal<u32>,
+    pub nora: Signal<bool>,
+    /// First tap on a goal: its detail page.
+    pub goal: Signal<Option<Goal>>,
+    pub goal_shown: Signal<Goal>,
+    /// Second tap (or the button on the detail page): the pillar page.
+    pub pillar: Signal<Option<Goal>>,
+    pub pillar_shown: Signal<Goal>,
+    pub checkin: Signal<Option<Checkin>>,
+    pub toast: Signal<Option<(u32, String)>>,
+    pub captures: Signal<Vec<String>>,
+    /// What a capture is for, when a page opened it with a purpose (title, hint).
+    pub capture_for: Signal<Option<(String, String)>>,
 }
 
-impl TodayState {
-    pub fn new(day: DayState) -> Self {
-        let (status, xp) = sample::initial_status(day);
-        TodayState {
-            day,
-            now: day.sample_now(),
-            mode: Signal::new(Mode::Normal),
-            status: Signal::new(status),
-            xp_today: Signal::new(xp),
-            timeline_open: Signal::new(false),
-            dismissed: Signal::new(Vec::new()),
+impl AppState {
+    pub fn new(locked: bool, safe: bool) -> Self {
+        AppState {
+            lock: Signal::new(if locked { Lock::Locked } else { Lock::Open }),
+            safe: Signal::new(safe),
             sheet: Signal::new(None),
-            read_done: Signal::new(false),
-            three_picked: Signal::new(false),
+            sheet_shown: Signal::new(SheetKind::Levels),
+            sheet_seq: Signal::new(0),
+            nora: Signal::new(false),
+            goal: Signal::new(None),
+            goal_shown: Signal::new(Goal::Money),
+            pillar: Signal::new(None),
+            pillar_shown: Signal::new(Goal::Money),
+            checkin: Signal::new(None),
+            toast: Signal::new(None),
+            captures: Signal::new(Vec::new()),
+            capture_for: Signal::new(None),
         }
     }
 
-    pub fn status_of(&self, id: &str) -> ItemStatus {
-        self.status.read().get(id).copied().unwrap_or_default()
-    }
-
-    /// Tap on an item. Returns the XP gained when it became done, so the row can float it.
-    pub fn toggle(&mut self, id: &'static str, xp_done: u32, xp_floor: u32) -> Option<u32> {
-        match self.status_of(id) {
-            ItemStatus::Done => {
-                self.status.write().insert(id, ItemStatus::Open);
-                let mut xp = self.xp_today.write();
-                *xp = xp.saturating_sub(xp_done);
-                None
-            }
-            ItemStatus::Floor => {
-                let gain = xp_done.saturating_sub(xp_floor);
-                self.status.write().insert(id, ItemStatus::Done);
-                *self.xp_today.write() += gain;
-                Some(gain)
-            }
-            ItemStatus::Open | ItemStatus::Skipped(_) => {
-                self.status.write().insert(id, ItemStatus::Done);
-                *self.xp_today.write() += xp_done;
-                Some(xp_done)
-            }
+    pub fn open_sheet(&mut self, kind: SheetKind) {
+        if kind == SheetKind::Capture {
+            self.capture_for.set(None);
         }
-    }
-
-    pub fn floor(&mut self, id: &'static str, xp_floor: u32) -> Option<u32> {
-        if self.status_of(id) != ItemStatus::Open {
-            return None;
-        }
-        self.status.write().insert(id, ItemStatus::Floor);
-        *self.xp_today.write() += xp_floor;
-        Some(xp_floor)
-    }
-
-    pub fn skip(&mut self, id: &'static str, reason: SkipReason) {
-        self.status.write().insert(id, ItemStatus::Skipped(reason));
-    }
-
-    pub fn dismiss(&mut self, id: &'static str) {
-        self.dismissed.write().push(id);
-    }
-
-    pub fn open_sheet(&mut self, sheet: TodaySheet) {
-        self.sheet.set(Some(sheet));
+        self.sheet_shown.set(kind);
+        *self.sheet_seq.write() += 1;
+        self.sheet.set(Some(kind));
     }
 
     pub fn close_sheet(&mut self) {
         self.sheet.set(None);
     }
 
-    pub fn tasks_done(&self) -> usize {
-        sample::TASKS
-            .iter()
-            .filter(|t| self.status_of(t.id).counts_done())
-            .count()
+    /// Capture with a purpose: the sheet shows `title` and `hint` instead of the generic copy.
+    pub fn capture_for(&mut self, title: impl Into<String>, hint: impl Into<String>) {
+        self.open_sheet(SheetKind::Capture);
+        self.capture_for.set(Some((title.into(), hint.into())));
     }
 
-    pub fn core_done(&self) -> usize {
-        sample::CORE
-            .iter()
-            .filter(|c| self.status_of(c.id).counts_done())
-            .count()
+    /// Two-step goal tap: the first opens the goal, a tap on the open goal opens its pillar.
+    pub fn tap_goal(&mut self, goal: Goal) {
+        if goal.private() && *self.safe.peek() {
+            return;
+        }
+        if *self.goal.peek() == Some(goal) {
+            self.open_pillar(goal);
+        } else {
+            self.pillar.set(None);
+            self.goal_shown.set(goal);
+            self.goal.set(Some(goal));
+        }
+    }
+
+    pub fn open_pillar(&mut self, goal: Goal) {
+        self.pillar_shown.set(goal);
+        self.pillar.set(Some(goal));
+    }
+
+    /// One step back: pillar page, then goal page.
+    pub fn back(&mut self) {
+        if self.pillar.peek().is_some() {
+            self.pillar.set(None);
+        } else {
+            self.goal.set(None);
+        }
+    }
+
+    /// Escape closes the top layer.
+    pub fn escape(&mut self) {
+        if self.sheet.peek().is_some() {
+            self.close_sheet();
+        } else if *self.nora.peek() {
+            self.nora.set(false);
+        } else {
+            self.back();
+        }
+    }
+
+    pub fn set_safe(&mut self, safe: bool) {
+        self.safe.set(safe);
+        if safe && self.goal.peek().is_some_and(|g| g.private()) {
+            self.pillar.set(None);
+            self.goal.set(None);
+        }
+    }
+
+    pub fn toast(&mut self, text: impl Into<String>) {
+        let id = self.toast.peek().as_ref().map_or(1, |(id, _)| id + 1);
+        self.toast.set(Some((id, text.into())));
     }
 }

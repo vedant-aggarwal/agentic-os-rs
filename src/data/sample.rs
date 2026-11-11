@@ -1,8 +1,6 @@
 //! Sample day from HOME.md. Every number on the page comes from here.
 
 use super::*;
-use crate::state::ItemStatus;
-use std::collections::HashMap;
 
 pub const DATE_LABEL: &str = "Wed 11 Nov";
 
@@ -204,25 +202,9 @@ pub const SESSIONS: &[Session] = &[
     },
 ];
 
-/// What is already ticked when each state opens, and the XP those ticks earned.
-pub fn initial_status(state: DayState) -> (HashMap<&'static str, ItemStatus>, u32) {
-    let mut map = HashMap::new();
-    let mut xp = 0;
-    let mut mark = |id: &'static str, status: ItemStatus, gained: u32| {
-        map.insert(id, status);
-        xp += gained;
-    };
-    match state {
-        DayState::Morning => {}
-        DayState::Day => {
-            mark("meditate", ItemStatus::Done, 20);
-        }
-        DayState::Night => {
-            mark("ship-home", ItemStatus::Done, 120);
-            mark("catalog", ItemStatus::Done, 40);
-            mark("meditate", ItemStatus::Done, 20);
-            mark("anchor", ItemStatus::Floor, 10);
-        }
-    }
-    (map, xp)
-}
+/// The sample clock: mid-afternoon, during the catalog shoot.
+pub const NOW: Time = Time::new(15, 42);
+
+/// Ticked before the screen opens (he meditated after waking). Worth 20 XP.
+pub const DONE_AT_START: &[&str] = &["meditate"];
+pub const XP_AT_START: u32 = 20;

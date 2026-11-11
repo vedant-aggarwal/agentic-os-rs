@@ -1,6 +1,6 @@
 use dioxus::prelude::*;
 
-/// Thin progress ring. `pct` is 0..=1.
+/// Thin progress ring. `pct` is 0..=1. The fill colour comes from CSS (`.ring-fill`).
 #[component]
 pub fn Ring(pct: f32, #[props(default = 24)] size: u32, #[props(default = 2.5)] width: f32) -> Element {
     let half = size as f32 / 2.0;
@@ -26,6 +26,7 @@ pub fn Ring(pct: f32, #[props(default = 24)] size: u32, #[props(default = 2.5)] 
                 stroke_linecap: "round",
                 stroke_dasharray: "{circumference}",
                 stroke_dashoffset: "{offset}",
+                transform: "rotate(-90 {half} {half})",
             }
         }
     }

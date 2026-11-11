@@ -1,0 +1,12 @@
+[
+  {"message": "Beta kal 5 baje shop pe aana, naya maal aaya hai", "sender": "Family", "read": true},
+  {"message": "Your OTP is 482913. Do not share it with anyone.", "sender": "VM-BANKXX", "read": false},
+  {"message": "FLAT 50% OFF on all shoes today only! Shop now at example.test", "sender": "AD-SHOPXX", "read": false},
+  {"message": "Hi, the invoice for last month is still unpaid. Can you pay by Friday?", "sender": "Client A", "read": true},
+  {"message": "Bhai assignment kal tak submit karna hai, tune kiya?", "sender": "College friend", "read": true},
+  {"message": "Your order #12345 has been shipped and will arrive on Monday.", "sender": "Store updates", "read": false},
+  {"message": "Good morning! Have a blessed day. Forward to 10 people.", "sender": "Random group", "read": false},
+  {"message": "Meeting moved to 4 pm tomorrow, please confirm.", "sender": "Colleague", "read": true},
+  {"message": "Dear customer, your data pack expires tonight. Recharge now for 20% extra.", "sender": "TM-TELCO", "read": false},
+  {"message": "Can you send the quote for 40 shirts by evening? The buyer is waiting.", "sender": "New lead", "read": true}
+]

@@ -1,0 +1,17 @@
+[package]
+name = "aos-core"
+version = "0.1.0"
+edition = "2024"
+description = "Agentic OS domain types and SQLite store"
+license = "MIT"
+
+[dependencies]
+chrono.workspace = true
+rand.workspace = true
+rusqlite = { workspace = true, features = ["chrono"] }
+serde.workspace = true
+serde_json.workspace = true
+sha2.workspace = true
+thiserror.workspace = true
+toml.workspace = true
+dirs.workspace = true

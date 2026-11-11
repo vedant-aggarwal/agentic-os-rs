@@ -1,2 +1,12 @@
 /target
 /dist
+# Personal data never goes in the repo.
+seed.local.toml
+*.db
+*.db-wal
+*.db-shm
+.aos/
+
+# personal 3D assets (his character, companion, presets): never committed
+/assets/personal/
+/hero3d-src/node_modules/

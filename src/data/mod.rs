@@ -1,5 +1,9 @@
 //! Typed model of one day. Sample values live in `sample.rs`; nothing here reads a clock.
+//! Not every type is on screen yet: the bottom half of the home (timeline, habits) reuses them.
 
+pub mod goal;
+pub mod levels;
+pub mod mood;
 pub mod sample;
 
 use std::{fmt, str::FromStr};

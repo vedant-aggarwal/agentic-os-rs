@@ -1,0 +1,19 @@
+[package]
+name = "aos-cli"
+version = "0.1.0"
+edition = "2024"
+description = "The `aos` command: Agentic OS tools from the terminal (AXI style) and an MCP stdio server"
+license = "MIT"
+
+[[bin]]
+name = "aos"
+path = "src/main.rs"
+
+[dependencies]
+aos-core.workspace = true
+aos-tools.workspace = true
+aos-inbox = { path = "../aos-inbox" }
+anyhow.workspace = true
+chrono.workspace = true
+clap.workspace = true
+serde_json.workspace = true

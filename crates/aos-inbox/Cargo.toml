@@ -1,0 +1,29 @@
+[package]
+name = "aos-inbox"
+version = "0.1.0"
+edition = "2024"
+description = "Agentic OS inbox: WhatsApp (wacli), Gmail (gws) and local Laya triage feeding inbox_item"
+license = "MIT"
+
+[dependencies]
+aos-core.workspace = true
+aos-tools.workspace = true
+chrono.workspace = true
+dirs.workspace = true
+rusqlite.workspace = true
+schemars.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+thiserror.workspace = true
+tokio = { workspace = true, features = ["process", "io-util", "time", "sync", "net", "rt"] }
+tokio-util.workspace = true
+toml.workspace = true
+tracing.workspace = true
+# Tree-kill for child processes: Job Object on Windows, process group on Unix.
+process-wrap = { version = "10.0.1", default-features = false, features = ["tokio1", "job-object", "kill-on-drop", "creation-flags", "process-group"] }
+
+[target.'cfg(windows)'.dependencies]
+windows = { version = "0.62.2", default-features = false, features = ["Win32_System_Threading"] }
+
+[dev-dependencies]
+tokio = { workspace = true, features = ["macros", "rt-multi-thread"] }

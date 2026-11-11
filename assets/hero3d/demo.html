@@ -1,0 +1,61 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Hero 3D demo</title>
+<style>
+  :root { color-scheme: dark; }
+  html, body { margin: 0; height: 100%; background: #050507; color: #cfd6e4; font: 13px/1.4 system-ui, sans-serif; }
+  #hero3d-root { position: fixed; inset: 0; }
+  .ui { position: fixed; left: 12px; right: 12px; bottom: 12px; display: flex; flex-wrap: wrap; gap: 8px; align-items: center;
+        background: rgba(20,22,30,.55); backdrop-filter: blur(14px); border: 1px solid rgba(255,255,255,.08); border-radius: 14px; padding: 10px 12px; }
+  .ui button { background: rgba(255,255,255,.06); color: inherit; border: 1px solid rgba(255,255,255,.1); border-radius: 9px; padding: 6px 10px; font: inherit; cursor: pointer; }
+  .ui button[aria-pressed="true"] { background: rgba(120,200,255,.18); border-color: rgba(120,200,255,.4); }
+  .ui input[type=range] { flex: 1; min-width: 120px; }
+  #stats { position: fixed; top: 10px; left: 12px; font: 11px/1.35 ui-monospace, monospace; opacity: .7; white-space: pre; pointer-events: none; }
+  #log { position: fixed; top: 10px; right: 12px; font: 11px ui-monospace, monospace; opacity: .7; }
+  body.clean .ui, body.clean #stats, body.clean #log { display: none; }
+</style>
+</head>
+<body>
+<div id="hero3d-root"></div>
+<div id="stats"></div>
+<div id="log"></div>
+<div class="ui">
+  <label>Level <b id="lv">1</b></label>
+  <input id="level" type="range" min="1" max="30" step="1" value="1">
+  <button id="priv" aria-pressed="false">Private</button>
+  <button data-f="">Overview</button>
+  <button data-f="Physical">Physical</button>
+  <button data-f="Money">Money</button>
+  <button data-f="Mind">Mind</button>
+</div>
+<script type="module">
+  import { mount, update, getStats } from './hero3d.js';
+  const q = new URLSearchParams(location.search);
+  const state = { level: +(q.get('level') || 1), privateMode: q.get('private') === '1', focused: q.get('focus') || null };
+  if (q.get('ui') === '0') document.body.classList.add('clean');
+  const root = document.getElementById('hero3d-root');
+  const lv = document.getElementById('lv'), slider = document.getElementById('level'), priv = document.getElementById('priv');
+  const sync = () => { lv.textContent = state.level; slider.value = state.level; priv.setAttribute('aria-pressed', state.privateMode); };
+  sync();
+  root.addEventListener('hero3d:goal', (e) => { document.getElementById('log').textContent = 'tap: ' + e.detail.goal; });
+  root.addEventListener('hero3d:focus', (e) => { state.focused = e.detail.goal; });
+  root.addEventListener('hero3d:ready', () => { window.__hero3dReady = true; });
+  await mount(root, {
+    ...state,
+    personalBase: q.has('nopersonal') ? '' : '../personal/',
+    quality: q.get('quality') || 'auto',
+    preserveDrawingBuffer: true,
+    adaptive: q.get('adaptive') !== '0',
+    debugView: q.get('view') || undefined,
+  });
+  slider.oninput = () => { state.level = +slider.value; sync(); update({ level: state.level }); };
+  priv.onclick = () => { state.privateMode = !state.privateMode; sync(); update({ privateMode: state.privateMode }); };
+  document.querySelectorAll('[data-f]').forEach((b) => (b.onclick = () => update({ focused: b.dataset.f || null })));
+  window.hero3d = { update, getStats };
+  setInterval(() => { document.getElementById('stats').textContent = JSON.stringify(getStats(), null, 1).replace(/[{}"]/g, ''); }, 1000);
+</script>
+</body>
+</html>

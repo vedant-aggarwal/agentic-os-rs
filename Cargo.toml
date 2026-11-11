@@ -8,9 +8,64 @@ dioxus = { version = "0.7.10", features = ["router", "fullstack"] }
 # Instant that works on wasm and native (std::time::Instant panics on wasm32).
 web-time = "1.1"
 
+# Client data layer (src/live): server API calls, outbox, local cache. reqwest is already in the
+# tree through dioxus-fullstack (same version and features), fetch-based on wasm.
+reqwest = { version = "0.12.28", default-features = false, features = ["json", "rustls-tls", "stream"] }
+serde = { workspace = true }
+serde_json = { workspace = true }
+futures = { workspace = true }
+chrono = { workspace = true, features = ["wasmbind"] }
+http = "1"
+
+
+# Server-only: the Agentic OS API (tools, sync, pairing, events) mounted next to the Dioxus SSR router.
+aos-server = { path = "crates/aos-server", optional = true }
+tokio = { workspace = true, optional = true }
+
+# Work tab (T3 Code port). Types only on clients; supervisor, store and tools with `server`.
+aos-work = { path = "crates/aos-work", default-features = false }
+aos-inbox = { path = "crates/aos-inbox", optional = true }
+
+# Nora runtime (thread, Claude engine, Grok read side, memory, alarms, heartbeat). Server only.
+aos-nora = { path = "crates/aos-nora", optional = true }
+
+[target.'cfg(not(target_arch = "wasm32"))'.dependencies]
+dirs = { workspace = true }
+
 [features]
 default = []
 web = ["dioxus/web"]
 desktop = ["dioxus/desktop"]
 mobile = ["dioxus/mobile"]
-server = ["dioxus/server"]
+server = ["dioxus/server", "dep:aos-server", "dep:tokio", "aos-work/runtime", "dep:aos-nora", "dep:aos-inbox"]
+
+[workspace]
+members = [".", "crates/*"]
+resolver = "2"
+
+# Versions pinned to what Dioxus 0.7.10 already pulls in (research/tech-stack.md, risk R8),
+# so Cargo builds one copy of each.
+[workspace.dependencies]
+aos-core = { path = "crates/aos-core" }
+aos-tools = { path = "crates/aos-tools" }
+anyhow = "1.0.104"
+axum = { version = "0.8.9", features = ["ws"] }
+chrono = { version = "0.4.45", features = ["serde"] }
+clap = { version = "4.6", features = ["derive", "env"] }
+dirs = "6.0"
+futures = "0.3.34"
+rand = "0.9"
+rusqlite = { version = "0.42", features = ["bundled"] }
+schemars = "1.2"
+serde = { version = "1.0.229", features = ["derive"] }
+serde_json = "1.0.154"
+sha2 = "0.10.9"
+thiserror = "2.0.21"
+tokio = { version = "1.54.1", features = ["rt-multi-thread", "macros", "signal", "sync", "time", "net"] }
+tokio-stream = { version = "0.1.19", features = ["sync"] }
+tokio-util = { version = "0.7.20", features = ["rt"] }
+toml = "0.8"
+tower = "0.5.3"
+tower-http = { version = "0.6.8", features = ["trace", "catch-panic", "limit"] }
+tracing = "0.1.44"
+tracing-subscriber = { version = "0.3.23", features = ["env-filter"] }

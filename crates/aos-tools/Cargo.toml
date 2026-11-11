@@ -1,0 +1,14 @@
+[package]
+name = "aos-tools"
+version = "0.1.0"
+edition = "2024"
+description = "Agentic OS tool registry: every tool defined once, exposed over HTTP, CLI and MCP"
+license = "MIT"
+
+[dependencies]
+aos-core.workspace = true
+chrono.workspace = true
+schemars.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+thiserror.workspace = true
