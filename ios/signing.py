@@ -69,6 +69,14 @@ def next_build():
                 best = max(best, int(v))
         nxt = page.get("links", {}).get("next")
         path = nxt[len(API):] if nxt else None
+    # Uploads that failed processing never become builds but still use up their number.
+    try:
+        for u in call("GET", f"/apps/{app}/buildUploads?limit=50")["data"]:
+            v = u["attributes"].get("cfBundleVersion", "")
+            if v.isdigit():
+                best = max(best, int(v))
+    except SystemExit as e:
+        print(f"buildUploads not readable, using builds only: {str(e)[:200]}")
     floor = int(os.environ.get("BUILD_FLOOR", "0") or 0)
     number = max(best + 1, floor)
     print(f"Highest build in App Store Connect: {best}; this build: {number}")
@@ -97,12 +105,25 @@ def setup():
     sh("security", "unlock-keychain", "-p", kc_pw, kc)
     sh("security", "import", p12, "-k", kc, "-P", p12_pw, "-T", "/usr/bin/codesign", "-T", "/usr/bin/security")
     sh("security", "set-key-partition-list", "-S", "apple-tool:,apple:,codesign:", "-s", "-k", kc_pw, kc)
+    # The WWDR intermediate must be findable, or codesign embeds only the leaf and App Store Connect rejects
+    # the signature (ITMS-90034/90035). Runner images usually have it; import it anyway.
+    for ca in ("AppleWWDRCAG3.cer", "AppleWWDRCAG4.cer"):
+        dest = os.path.join(TMP, ca)
+        try:
+            urllib.request.urlretrieve(f"https://www.apple.com/certificateauthority/{ca}", dest)
+            subprocess.run(["security", "import", dest, "-k", kc], check=False, capture_output=True)
+        except Exception as e:
+            print(f"Could not fetch {ca}: {e}")
     existing = [l.strip().strip('"') for l in sh("security", "list-keychains", "-d", "user").splitlines()]
     sh("security", "list-keychains", "-d", "user", "-s", kc, *existing)
     ids = sh("security", "find-identity", "-v", "-p", "codesigning", kc)
     m = re.search(r"\b([0-9A-F]{40})\b", ids)
     if not m:
         raise SystemExit("The new certificate is not a usable signing identity.")
+    kind = re.search(r'"(Apple Distribution|iPhone Distribution|Apple Development|iPhone Developer)', ids)
+    print(f"Signing identity type: {kind.group(1) if kind else 'unknown'}")
+    if not kind or "Distribution" not in kind.group(1):
+        raise SystemExit("The new certificate is not an Apple Distribution identity.")
     os.remove(key)
 
     bundles = call("GET", f"/bundleIds?filter[identifier]={bundle}&limit=200")["data"]
@@ -117,7 +138,14 @@ def setup():
     state["profile"] = prof["id"]
     json.dump(state, open(STATE, "w"))
     profile_path = os.path.join(TMP, "app.mobileprovision")
-    open(profile_path, "wb").write(base64.b64decode(prof["attributes"]["profileContent"]))
+    content = base64.b64decode(prof["attributes"]["profileContent"])
+    open(profile_path, "wb").write(content)
+    # Installed where xcodebuild -exportArchive looks for profiles (Xcode 16+ and the older folder).
+    uid = prof["attributes"]["uuid"]
+    for d in ("~/Library/Developer/Xcode/UserData/Provisioning Profiles", "~/Library/MobileDevice/Provisioning Profiles"):
+        d = os.path.expanduser(d)
+        os.makedirs(d, exist_ok=True)
+        open(os.path.join(d, f"{uid}.mobileprovision"), "wb").write(content)
 
     # The app asks for the minimum an App Store build needs; the profile allows a superset.
     granted = plistlib.loads(subprocess.run(["security", "cms", "-D", "-i", profile_path],
@@ -133,7 +161,8 @@ def setup():
         plistlib.dump(ent, f)
     print(f"Signing ready: certificate {cert['id']}, profile {prof['id']}; "
           f"entitlements {', '.join(sorted(ent))}")
-    env_out(SIGN_IDENTITY=m.group(1), PROFILE_PATH=profile_path, ENTITLEMENTS=ent_path)
+    env_out(SIGN_IDENTITY=m.group(1), PROFILE_PATH=profile_path, ENTITLEMENTS=ent_path,
+            PROFILE_NAME=name, PROFILE_UUID=uid, SIGN_KEYCHAIN=kc)
 
 
 def cleanup():
@@ -158,5 +187,37 @@ def status():
         print(f"build {a.get('version')} uploaded {a.get('uploadedDate')} state {a.get('processingState')}")
 
 
+def wait_processing():
+    """Waits for Apple to finish processing this upload; fails the run on processing errors (ITMS-…)."""
+    app, want = app_id(), os.environ["BUILD_NUMBER"]
+    deadline = time.time() + int(os.environ.get("PROCESSING_TIMEOUT", "1800"))
+    last = None
+    while time.time() < deadline:
+        ups = [u["attributes"] for u in call("GET", f"/apps/{app}/buildUploads?limit=50")["data"]
+               if u["attributes"].get("cfBundleVersion") == want]
+        if ups:
+            st = ups[0].get("state") or {}
+            state = st.get("state")
+            if state != last:
+                print(f"Upload of build {want}: {state}")
+                last = state
+            for w in st.get("warnings") or []:
+                print(f"  warning {w.get('code')}: {w.get('description')}")
+            if state == "FAILED":
+                for e in st.get("errors") or []:
+                    print(f"  error {e.get('code')}: {e.get('description')}")
+                raise SystemExit(f"App Store Connect rejected build {want}.")
+            if state == "COMPLETE":
+                builds = call("GET", f"/builds?filter[app]={app}&filter[version]={want}")["data"]
+                if builds and builds[0]["attributes"].get("processingState") == "VALID":
+                    print(f"Build {want} is VALID in TestFlight.")
+                    return
+                if builds:
+                    print(f"Build {want}: {builds[0]['attributes'].get('processingState')}")
+        time.sleep(30)
+    print(f"Still processing after the timeout; check App Store Connect for build {want}.")
+
+
 if __name__ == "__main__":
-    {"next-build": next_build, "setup": setup, "cleanup": cleanup, "status": status}[sys.argv[1]]()
+    {"next-build": next_build, "setup": setup, "cleanup": cleanup, "status": status,
+     "wait-processing": wait_processing}[sys.argv[1]]()

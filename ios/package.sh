@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
 # Turns the .app from `dx bundle --platform ios` into a signed App Store IPA.
 #   ios/package.sh <path/to/App.app> <out.ipa>
-# Env: BUNDLE_ID, BUILD_NUMBER, MARKETING_VERSION, MIN_IOS, SIGN_IDENTITY, PROFILE_PATH, ENTITLEMENTS, RUNNER_TEMP
+# Env: BUNDLE_ID, APPLE_TEAM_ID, BUILD_NUMBER, MARKETING_VERSION, MIN_IOS, SIGN_IDENTITY, SIGN_KEYCHAIN,
+#      PROFILE_PATH, PROFILE_NAME, ENTITLEMENTS, RUNNER_TEMP
 # dx writes a generic Info.plist and leaves the app unsigned; App Store validation also wants the
 # compiled app icon, the SDK/Xcode keys Xcode normally adds, and iPhone-only platform values.
 set -euo pipefail
@@ -63,18 +64,78 @@ echo "Info.plist:"; plutil -p "$PL"
 EXE=$($PB -c "Print :CFBundleExecutable" "$PL")
 echo "Executable: $EXE"; lipo -info "$APP/$EXE"; otool -l "$APP/$EXE" | grep -A4 LC_BUILD_VERSION | head -6 || true
 
-# Sign: nested code first, then the app with the profile embedded.
+# Find any other Mach-O in the bundle (dx can ship helpers); each is signed before the app.
+echo "Mach-O files in the bundle:"
+find "$APP" -type f -print0 | while IFS= read -r -d '' f; do
+  file -b "$f" | grep -q "Mach-O" && echo "  ${f#$APP/}"
+done
+
+# 1) Sign with the run's Apple Distribution identity, inside-out, profile embedded.
 cp "$PROFILE_PATH" "$APP/embedded.mobileprovision"
 rm -rf "$APP/_CodeSignature"
 find "$APP" -mindepth 1 \( -name "*.framework" -o -name "*.dylib" -o -name "*.appex" \) -prune -print0 |
-  while IFS= read -r -d '' f; do codesign --force --sign "$SIGN_IDENTITY" --timestamp=none "$f"; done
-codesign --force --sign "$SIGN_IDENTITY" --entitlements "$ENTITLEMENTS" --generate-entitlement-der --timestamp=none "$APP"
+  while IFS= read -r -d '' f; do codesign --force --sign "$SIGN_IDENTITY" --keychain "$SIGN_KEYCHAIN" "$f"; done
+codesign --force --sign "$SIGN_IDENTITY" --keychain "$SIGN_KEYCHAIN" --entitlements "$ENTITLEMENTS" --generate-entitlement-der "$APP"
 codesign --verify --deep --strict --verbose=2 "$APP"
-codesign -d --entitlements - "$APP" 2>/dev/null | head -40 || true
 
-# IPA = Payload/<App>.app, zipped.
-STAGE="$TMP/ipa"; mkdir -p "$STAGE/Payload"
-cp -R "$APP" "$STAGE/Payload/"
-rm -f "$OUT"
-(cd "$STAGE" && zip -qry -X "$OUT" Payload)
+# 2) Wrap it in an .xcarchive and let Xcode export it for App Store Connect, the way an Xcode archive ships:
+#    Xcode re-signs everything with the distribution certificate and the App Store profile.
+ARCHIVE="$TMP/AgenticOS.xcarchive"
+mkdir -p "$ARCHIVE/Products/Applications"
+cp -R "$APP" "$ARCHIVE/Products/Applications/"
+APPNAME=$(basename "$APP")
+cat > "$ARCHIVE/Info.plist" <<PLIST
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0"><dict>
+  <key>ApplicationProperties</key><dict>
+    <key>ApplicationPath</key><string>Applications/$APPNAME</string>
+    <key>Architectures</key><array><string>arm64</string></array>
+    <key>CFBundleIdentifier</key><string>$BUNDLE_ID</string>
+    <key>CFBundleShortVersionString</key><string>$MARKETING_VERSION</string>
+    <key>CFBundleVersion</key><string>$BUILD_NUMBER</string>
+    <key>SigningIdentity</key><string>Apple Distribution</string>
+    <key>Team</key><string>$APPLE_TEAM_ID</string>
+  </dict>
+  <key>ArchiveVersion</key><integer>2</integer>
+  <key>CreationDate</key><date>$(date -u +%Y-%m-%dT%H:%M:%SZ)</date>
+  <key>Name</key><string>AgenticOS</string>
+  <key>SchemeName</key><string>AgenticOS</string>
+</dict></plist>
+PLIST
+cat > "$TMP/export.plist" <<PLIST
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0"><dict>
+  <key>method</key><string>app-store-connect</string>
+  <key>destination</key><string>export</string>
+  <key>teamID</key><string>$APPLE_TEAM_ID</string>
+  <key>signingStyle</key><string>manual</string>
+  <key>signingCertificate</key><string>Apple Distribution</string>
+  <key>provisioningProfiles</key><dict><key>$BUNDLE_ID</key><string>$PROFILE_NAME</string></dict>
+  <key>uploadSymbols</key><false/>
+  <key>manageAppVersionAndBuildNumber</key><false/>
+</dict></plist>
+PLIST
+xcodebuild -exportArchive -archivePath "$ARCHIVE" -exportOptionsPlist "$TMP/export.plist" -exportPath "$TMP/export"
+IPA=$(find "$TMP/export" -maxdepth 1 -name "*.ipa" | head -1)
+[ -n "$IPA" ] || { echo "xcodebuild exported no IPA"; ls -la "$TMP/export"; exit 1; }
+
+# 3) Check the exported IPA before it goes anywhere: distribution authority, App Store profile, entitlements.
+CHECK="$TMP/check"; rm -rf "$CHECK"; mkdir -p "$CHECK"
+unzip -q "$IPA" -d "$CHECK"
+CAPP=$(find "$CHECK/Payload" -maxdepth 1 -name "*.app" | head -1)
+codesign --verify --deep --strict --verbose=2 "$CAPP"
+SIG=$(codesign -dvvv "$CAPP" 2>&1 || true)
+echo "$SIG" | grep -E "^(Authority|Format|CodeDirectory|Signature size)" || true
+case "$SIG" in *"Authority=Apple Distribution"*) ;; *) echo "Not signed by Apple Distribution"; exit 1;; esac
+case "$SIG" in *"Authority=Apple Worldwide Developer Relations"*) ;; *) echo "Signature has no WWDR intermediate"; exit 1;; esac
+security cms -D -i "$CAPP/embedded.mobileprovision" > "$TMP/profile.plist"
+if $PB -c "Print :ProvisionedDevices" "$TMP/profile.plist" >/dev/null 2>&1; then echo "Profile lists devices: not an App Store profile"; exit 1; fi
+echo "Profile: $($PB -c 'Print :Name' "$TMP/profile.plist"), get-task-allow $($PB -c 'Print :Entitlements:get-task-allow' "$TMP/profile.plist")"
+codesign -d --entitlements :- "$CAPP" 2>/dev/null > "$TMP/ent.plist"
+echo "Signed entitlements:"; plutil -p "$TMP/ent.plist" | sed -E 's/[A-Z0-9]{10}\./TEAM./g'
+[ "$($PB -c 'Print :get-task-allow' "$TMP/ent.plist" 2>/dev/null)" = "false" ] || { echo "get-task-allow is not false"; exit 1; }
+
+cp "$IPA" "$OUT"
 ls -la "$OUT"
