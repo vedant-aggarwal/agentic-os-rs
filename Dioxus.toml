@@ -1,0 +1,12 @@
+[application]
+name = "agentic-os"
+
+[web.app]
+title = "Agentic OS"
+
+[bundle]
+identifier = "com.example.agenticos"
+publisher = "Agentic OS"
+
+[ios]
+deployment_target = "16.0"

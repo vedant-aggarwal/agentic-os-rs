@@ -1,0 +1,99 @@
+# Builds the Dioxus iOS app on a GitHub macOS runner and uploads it to App Store Connect (TestFlight).
+# Runs on every push to main, or by hand: gh workflow run ios.yml -f upload=true
+#
+# Repo secrets: APPLE_TEAM_ID, ASC_KEY_ID, ASC_ISSUER_ID, ASC_KEY_P8 (contents of the .p8 key), BUNDLE_ID.
+# Signing goes through the App Store Connect API (ios/signing.py): a short-lived distribution certificate and
+# App Store profile per run, removed at the end. The build number is the app's highest build number + 1.
+# This repo is public, so its logs are public: secrets only pass through env, and no IPA is kept as an artifact.
+name: iOS TestFlight
+on:
+  push:
+    branches: [main]
+    paths-ignore: ['**.md', 'LICENSE']
+  workflow_dispatch:
+    inputs:
+      upload:
+        description: Upload to App Store Connect
+        type: boolean
+        default: true
+concurrency:
+  group: ios-testflight
+  cancel-in-progress: false
+env:
+  MARKETING_VERSION: '3.0.0'
+  MIN_IOS: '16.0'
+  DX_VERSION: '0.7.10'
+  CARGO_TARGET_DIR: ${{ github.workspace }}/target
+  CARGO_TERM_COLOR: never
+jobs:
+  ios:
+    runs-on: macos-26
+    timeout-minutes: 60
+    env:
+      BUNDLE_ID: ${{ secrets.BUNDLE_ID }}
+      APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+      ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
+      ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
+      UPLOAD: ${{ github.event_name == 'push' || inputs.upload }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Xcode 26 or newer
+        run: |
+          major() { xcodebuild -version | head -1 | awk '{print $2}' | cut -d. -f1; }
+          if [ "$(major)" -lt 26 ]; then
+            pick=$(ls -d /Applications/Xcode_26*.app 2>/dev/null | sort -V | tail -1)
+            [ -n "$pick" ] || { echo "No Xcode 26 on this runner"; exit 1; }
+            sudo xcode-select -s "$pick/Contents/Developer"
+          fi
+          xcodebuild -version
+          xcrun --sdk iphoneos --show-sdk-version
+      - name: Rust for iOS
+        run: |
+          rustup update stable --no-self-update
+          rustup default stable
+          rustup target add aarch64-apple-ios
+          rustc --version
+      - uses: Swatinem/rust-cache@v2
+        with:
+          key: ios
+          cache-bin: false
+      - uses: cargo-bins/cargo-binstall@main
+      - name: Dioxus CLI
+        run: |
+          cargo binstall dioxus-cli@$DX_VERSION --no-confirm --force
+          dx --version
+      - name: App Store Connect key
+        env:
+          ASC_KEY_P8: ${{ secrets.ASC_KEY_P8 }}
+        run: |
+          mkdir -p ~/.appstoreconnect/private_keys
+          printf '%s\n' "$ASC_KEY_P8" > ~/.appstoreconnect/private_keys/AuthKey_$ASC_KEY_ID.p8
+          echo "ASC_KEY_PATH=$HOME/.appstoreconnect/private_keys/AuthKey_$ASC_KEY_ID.p8" >> $GITHUB_ENV
+          python3 -m pip install --quiet --break-system-packages pyjwt cryptography
+      - name: Build number
+        run: python3 ios/signing.py next-build
+      - name: Build the app (dx bundle)
+        env:
+          IPHONEOS_DEPLOYMENT_TARGET: ${{ env.MIN_IOS }}
+        run: |
+          dx bundle --platform ios --release --package-types ios --out-dir "$RUNNER_TEMP/dx"
+          APP=$(find "$RUNNER_TEMP/dx" -maxdepth 1 -name "*.app" | head -1)
+          [ -n "$APP" ] || { ls -la "$RUNNER_TEMP/dx"; echo "dx produced no .app"; exit 1; }
+          echo "APP=$APP" >> $GITHUB_ENV
+          ls -la "$APP"
+      - name: Signing certificate and profile
+        run: python3 ios/signing.py setup
+      - name: Info.plist, icon, signature, IPA
+        run: bash ios/package.sh "$APP" "$RUNNER_TEMP/out/AgenticOS.ipa"
+      - name: Upload to App Store Connect
+        if: ${{ env.UPLOAD == 'true' }}
+        run: |
+          xcrun altool --upload-app -f "$RUNNER_TEMP/out/AgenticOS.ipa" -t ios \
+            --apiKey "$ASC_KEY_ID" --apiIssuer "$ASC_ISSUER_ID"
+          echo "Uploaded build $BUILD_NUMBER ($MARKETING_VERSION)"
+      - name: Builds in App Store Connect
+        if: ${{ env.UPLOAD == 'true' }}
+        run: python3 ios/signing.py status
+      - name: Remove the run's certificate and profile
+        if: always()
+        run: python3 ios/signing.py cleanup || true

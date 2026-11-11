@@ -1,0 +1,16 @@
+[package]
+name = "agentic-os"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+dioxus = { version = "0.7.10", features = ["router", "fullstack"] }
+# Instant that works on wasm and native (std::time::Instant panics on wasm32).
+web-time = "1.1"
+
+[features]
+default = []
+web = ["dioxus/web"]
+desktop = ["dioxus/desktop"]
+mobile = ["dioxus/mobile"]
+server = ["dioxus/server"]
