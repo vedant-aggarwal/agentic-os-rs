@@ -171,6 +171,7 @@ pub fn NoraPage() -> Element {
                     size: 20,
                     on_text: move |t: String| { let v = append_text(&draft.peek(), &t); draft.set(v) },
                 }
+                crate::components::photo::PhotoButton { size: 20 }
                 button {
                     class: "np-send",
                     r#type: "button",

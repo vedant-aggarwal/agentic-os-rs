@@ -30,6 +30,7 @@ pub enum IconName {
     Send,
     Sparkle,
     Plus,
+    Camera,
 }
 
 #[component]
@@ -157,6 +158,10 @@ fn paths(name: IconName) -> Element {
         },
         IconName::Sparkle => rsx! {
             path { d: "M9.937 15.5A2 2 0 0 0 8.5 14.063l-6.135-1.582a.5.5 0 0 1 0-.962L8.5 9.936A2 2 0 0 0 9.937 8.5l1.582-6.135a.5.5 0 0 1 .963 0L14.063 8.5A2 2 0 0 0 15.5 9.937l6.135 1.581a.5.5 0 0 1 0 .964L15.5 14.063a2 2 0 0 0-1.437 1.437l-1.582 6.135a.5.5 0 0 1-.963 0z" }
+        },
+        IconName::Camera => rsx! {
+            path { d: "M14.5 4h-5L7 7H4a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-3l-2.5-3z" }
+            circle { cx: "12", cy: "13", r: "3" }
         },
         IconName::Plus => rsx! {
             path { d: "M5 12h14" }

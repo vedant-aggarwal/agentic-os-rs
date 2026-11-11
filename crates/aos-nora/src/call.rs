@@ -562,6 +562,7 @@ impl Calls {
             mcp_config: nora.mcp_config(),
             deny_tools: vec!["nora_send".into(), "call_request".into()],
             timeout: Some(self.0.cfg.handoff_max),
+            ..Default::default()
         };
         let (tx, mut rx) = mpsc::unbounded_channel();
         let run = nora.engine().run(req, tx);
@@ -669,6 +670,7 @@ impl Calls {
             mcp_config: nora.mcp_config(),
             deny_tools: vec!["nora_send".into(), "call_request".into()],
             timeout: Some(self.0.cfg.writeup_max),
+            ..Default::default()
         };
         let (tx, _rx) = mpsc::unbounded_channel();
         let out = tokio::time::timeout(self.0.cfg.writeup_max + Duration::from_secs(5), nora.engine().run(req, tx)).await;

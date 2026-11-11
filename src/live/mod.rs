@@ -167,6 +167,26 @@ impl Live {
         }
     }
 
+    /// GET a server path that is not a tool (morning print settings, printers).
+    pub async fn get_json(&mut self, path: &str) -> Result<Value, String> {
+        let Some(c) = self.conn_now() else { return Err("Pair with your server first.".into()) };
+        let r = net::get(&c, path).await;
+        if let Err(e) = &r {
+            self.note_err(e);
+        }
+        r.map_err(|e| e.message())
+    }
+
+    /// POST JSON to a server path that is not a tool.
+    pub async fn post_json(&mut self, path: &str, body: Value) -> Result<Value, String> {
+        let Some(c) = self.conn_now() else { return Err("Pair with your server first.".into()) };
+        let r = net::post(&c, path, &body).await;
+        if let Err(e) = &r {
+            self.note_err(e);
+        }
+        r.map_err(|e| e.message())
+    }
+
     async fn call(&mut self, tool: &str, args: Value) -> Result<Value, NetError> {
         let Some(c) = self.conn_now() else {
             return Err(NetError::Offline("not paired".into()));

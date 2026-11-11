@@ -301,6 +301,7 @@ impl Nora {
             mcp_config: self.mcp_config(),
             deny_tools: vec!["nora_send".into()],
             timeout: Some(Duration::from_secs(600)),
+            ..Default::default()
         };
 
         let (tx, mut rx) = mpsc::unbounded_channel();
@@ -405,6 +406,13 @@ pub(crate) mod testing {
     }
 
     pub fn nora_with(texts: &[&str], tool: Option<&str>) -> (Nora, Arc<FakeEngine>, PathBuf) {
+        // Sheets, PDFs and photos made by tests go to a temp folder, never to the real ~/.aos/print.
+        static PRINT_DIR: std::sync::Once = std::sync::Once::new();
+        PRINT_DIR.call_once(|| {
+            let dir = std::env::temp_dir().join(format!("aos-print-test-{}", aos_core::ids::new_id()));
+            // SAFETY: set once, before any test thread reads it through `morning::print_dir`.
+            unsafe { std::env::set_var("AOS_PRINT_DIR", dir) };
+        });
         let path = std::env::temp_dir().join(format!("aos-nora-{}.db", aos_core::ids::new_id()));
         let mut cfg = NoraConfig::from_env(path.clone());
         cfg.grok.dir = None;

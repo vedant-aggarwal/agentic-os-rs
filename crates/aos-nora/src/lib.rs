@@ -25,6 +25,7 @@ pub mod grok_write;
 pub mod heartbeat;
 pub mod http;
 pub mod memory;
+pub mod morning;
 pub mod nora;
 pub mod prompt;
 pub mod realtime;

@@ -50,6 +50,7 @@
     preserveDrawingBuffer: true,
     adaptive: q.get('adaptive') !== '0',
     debugView: q.get('view') || undefined,
+    noGlb: q.has('noglb'),
   });
   slider.oninput = () => { state.level = +slider.value; sync(); update({ level: state.level }); };
   priv.onclick = () => { state.privateMode = !state.privateMode; sync(); update({ privateMode: state.privateMode }); };

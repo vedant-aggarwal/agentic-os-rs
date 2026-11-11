@@ -27,6 +27,36 @@ pub struct TurnRequest {
     /// MCP tool names the model must not call (e.g. `nora_send`, which would loop).
     pub deny_tools: Vec<String>,
     pub timeout: Option<Duration>,
+    /// Images sent with the prompt (a photo of a page, say).
+    pub images: Vec<ImageInput>,
+    /// Allow the CLI's web search and fetch tools (the news brief). Everything else stays off.
+    pub web: bool,
+}
+
+/// One image for a turn, base64 encoded.
+#[derive(Debug, Clone, Default, PartialEq)]
+pub struct ImageInput {
+    /// `image/jpeg`, `image/png`, `image/webp` or `image/gif`.
+    pub media_type: String,
+    pub base64: String,
+}
+
+/// The stream-json user message for a prompt with optional images (images first, then text).
+pub fn user_message_with_images(text: &str, images: &[ImageInput]) -> Value {
+    if images.is_empty() {
+        return user_message(text);
+    }
+    let mut content: Vec<Value> = images
+        .iter()
+        .map(|i| serde_json::json!({ "type": "image", "source": { "type": "base64", "media_type": i.media_type, "data": i.base64 } }))
+        .collect();
+    content.push(serde_json::json!({ "type": "text", "text": text }));
+    serde_json::json!({
+        "type": "user",
+        "message": { "role": "user", "content": content },
+        "parent_tool_use_id": null,
+        "session_id": ""
+    })
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -92,13 +122,18 @@ impl ClaudeCli {
             "--setting-sources",
             "",
             "--strict-mcp-config",
-            // No built-in tools (Bash, files, web); her tools come from our MCP server.
-            "--tools",
-            "",
         ]
         .iter()
         .map(|s| s.to_string())
         .collect();
+        // No built-in tools (Bash, files); her tools come from our MCP server. A turn that asks
+        // for the web gets search and fetch only.
+        a.push("--tools".into());
+        a.push(if req.web { "WebSearch,WebFetch".into() } else { String::new() });
+        if req.web {
+            a.push("--allowedTools".into());
+            a.push("WebSearch,WebFetch".into());
+        }
         a.push("--system-prompt".into());
         a.push(req.system.clone());
         if let Some(cfg) = &req.mcp_config {
@@ -134,7 +169,7 @@ impl Engine for ClaudeCli {
                 Err(e) => return TurnOutcome { error: Some(e.to_string()), ..Default::default() },
             };
             info!(pid = ?child.pid, model = ?req.model, "nora claude turn started");
-            child.send_json(&user_message(&req.prompt));
+            child.send_json(&user_message_with_images(&req.prompt, &req.images));
             let timeout = req.timeout.unwrap_or(Duration::from_secs(600));
             let out = tokio::time::timeout(timeout, read_turn(&mut child.lines, &updates)).await;
             let out = match out {

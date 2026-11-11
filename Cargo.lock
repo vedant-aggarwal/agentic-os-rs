@@ -181,6 +181,7 @@ version = "0.1.0"
 dependencies = [
  "anyhow",
  "aos-core",
+ "aos-inbox",
  "aos-server",
  "aos-tools",
  "aos-work",

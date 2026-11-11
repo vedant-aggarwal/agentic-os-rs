@@ -9,6 +9,8 @@ license = "MIT"
 aos-core.workspace = true
 aos-tools.workspace = true
 aos-server = { path = "../aos-server" }
+# The morning sheet lists open inbox items; marks on them go back through inbox_mark.
+aos-inbox = { path = "../aos-inbox" }
 # Reuses the Work tab's process supervisor, stream-json translator and CLI discovery.
 aos-work = { path = "../aos-work" }
 anyhow.workspace = true

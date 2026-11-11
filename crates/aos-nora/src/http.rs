@@ -43,7 +43,8 @@ pub fn router(nora: Nora) -> Router {
         .route("/api/nora/turns", get(turns))
         .route("/api/nora/consolidate", post(consolidate))
         .route("/api/nora/grok", get(grok_state))
-        .with_state(nora)
+        .with_state(nora.clone())
+        .merge(crate::morning::http::router(nora))
 }
 
 fn fail(e: anyhow::Error) -> Response {

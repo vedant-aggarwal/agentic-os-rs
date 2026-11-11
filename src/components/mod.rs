@@ -1,6 +1,7 @@
 pub mod hero3d;
 pub mod icon;
 pub mod nav;
+pub mod photo;
 pub mod ring;
 pub mod sheet;
 pub mod voice;

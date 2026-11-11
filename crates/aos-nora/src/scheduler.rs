@@ -44,6 +44,10 @@ pub async fn run(nora: Nora) {
             if t.is_multiple_of(15) {
                 crate::call::close_day_tick(&n)?;
             }
+            // The morning print: starts a spawned run at its time, once a day.
+            if t.is_multiple_of(5) {
+                crate::morning::tick(&n)?;
+            }
             Ok(())
         })
         .await;

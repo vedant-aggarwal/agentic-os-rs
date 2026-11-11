@@ -27,6 +27,8 @@ pub fn launch(app: fn() -> Element) {
         let nora = aos_nora::Nora::start(nora_cfg)?;
         nora.install_global();
         registry.extend(aos_nora::tools::tools(&nora));
+        // Morning print: `print_morning`, `morning_settings`, `plan_photo`; the 05:00 job runs in Nora's scheduler.
+        registry.extend(aos_nora::morning::tools(&nora));
         // Voice calls: Codex realtime for the voice, hand-offs as Claude turns.
         let calls = aos_nora::call::Calls::start(nora.clone(), aos_nora::call::CallConfig::from_env())?;
         registry.extend(aos_nora::call::tools(&nora));

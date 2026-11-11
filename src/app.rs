@@ -51,6 +51,7 @@ fn Shell() -> Element {
     });
     let _live = crate::live::use_live_provider();
     let _voice = crate::components::voice::use_voice_provider(state);
+    let _photo = crate::components::photo::use_photo_provider(state);
     use_live_toasts(state);
     use_layer_gestures(state);
     use_safe_mode_store(state, lock_param == Some(Switch::Off) && mode_param.is_none());
