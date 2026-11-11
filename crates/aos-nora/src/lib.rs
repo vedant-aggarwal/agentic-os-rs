@@ -15,14 +15,19 @@
 //! let routes = aos_nora::http::router_with_auth(nora.clone(), auth_store);
 //! ```
 
+pub mod call;
 pub mod engine;
 pub mod events;
 pub mod grok;
+#[cfg(windows)]
+pub mod grok_uia;
+pub mod grok_write;
 pub mod heartbeat;
 pub mod http;
 pub mod memory;
 pub mod nora;
 pub mod prompt;
+pub mod realtime;
 pub mod scheduler;
 pub mod store;
 pub mod tools;

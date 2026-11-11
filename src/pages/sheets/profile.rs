@@ -2,6 +2,7 @@
 
 use dioxus::prelude::*;
 
+use crate::components::voice::RecoverRows;
 use crate::components::{Icon, IconName};
 use crate::data::levels::Look;
 use crate::live;
@@ -28,6 +29,7 @@ pub fn ProfileSheet() -> Element {
         None => format!("{pending} waiting to send"),
     };
     let name = live::profile_name();
+    let mut recover = use_signal(|| false);
     rsx! {
         div { class: "sheet-body profile",
             div { class: "pf-head",
@@ -107,6 +109,17 @@ pub fn ProfileSheet() -> Element {
                         }
                     }
                 }
+                button {
+                    class: "pf-row",
+                    r#type: "button",
+                    onclick: move |_| recover.toggle(),
+                    span { class: "pf-ico", Icon { name: IconName::Mic, size: 18, stroke: 1.75 } }
+                    span { class: "pf-text",
+                        span { class: "pf-t", "Recover recordings" }
+                        span { class: "pf-s", "Voice takes kept on this device. Ctrl+Alt+M dictates on desktop." }
+                    }
+                }
+                if recover() { RecoverRows {} }
                 div { class: "pf-row pf-static",
                     span { class: "pf-ico", Icon { name: IconName::Sparkle, size: 18, stroke: 1.75 } }
                     span { class: "pf-text",

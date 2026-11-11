@@ -25,6 +25,14 @@ pub enum NoraEvent {
     /// Nora wants to call him (stub: the call runtime comes in phase D).
     CallRequested { call: Call },
     CallMissed { call: Call },
+    /// A voice call started, changed state or ended (`crate::call`).
+    CallState { call: crate::call::CallView },
+    /// A line of the call transcript: `who` is `you` or `nora`; `done` = the line is complete.
+    CallTranscript { call_id: String, who: String, text: String, done: bool },
+    /// A hand-off on a call (a Claude turn): `running`, a tool step, `done` or `failed`.
+    CallHandoff { call_id: String, status: String, text: String },
+    /// His state for the orb (colour, label, reasons).
+    OrbState { orb: crate::call::OrbState },
     /// Something was queued for the Grok Bot write side.
     GrokQueued { id: i64, kind: String },
 }

@@ -42,6 +42,7 @@ pub fn router(nora: Nora) -> Router {
         .route("/api/nora/heartbeats", get(heartbeats))
         .route("/api/nora/turns", get(turns))
         .route("/api/nora/consolidate", post(consolidate))
+        .route("/api/nora/grok", get(grok_state))
         .with_state(nora)
 }
 
@@ -119,4 +120,16 @@ struct DayQ {
 async fn consolidate(State(n): State<Nora>, Query(q): Query<DayQ>) -> Response {
     let day = q.day.unwrap_or_else(|| chrono::Local::now().format("%Y-%m-%d").to_string());
     ok(crate::scheduler::consolidate(&n, &day).await)
+}
+
+/// Grok Bot write-side state: idle | sending | busy | locked | not_running | error, plus the queue size.
+async fn grok_state(State(n): State<Nora>) -> Response {
+    let v: serde_json::Value = n
+        .db()
+        .get_kv("grok_write_state")
+        .ok()
+        .flatten()
+        .and_then(|s| serde_json::from_str(&s).ok())
+        .unwrap_or_else(|| serde_json::json!({ "state": "idle", "queued": 0 }));
+    ok(Ok::<_, anyhow::Error>(v))
 }

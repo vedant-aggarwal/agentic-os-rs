@@ -6,6 +6,7 @@
 use dioxus::prelude::*;
 
 use crate::app::Route;
+use crate::components::voice::{MicButton, append_text};
 use crate::components::{Icon, IconName};
 use crate::data::goal::Goal;
 use crate::live::{self, Area, InboxState, Live, TaskNode};
@@ -250,6 +251,7 @@ pub fn Mission() -> Element {
     let mut live = use_context::<Live>();
     let state = use_context::<AppState>();
     let safe = (state.safe)();
+    let mut entry = use_signal(String::new);
     use_effect(move || {
         if live.conn.read().is_some() {
             spawn(async move { live.load_journal().await });
@@ -290,6 +292,31 @@ pub fn Mission() -> Element {
                 }
             }
             h2 { class: "pg-h", "Journal" }
+            div { class: "ms-compose",
+                textarea {
+                    rows: "2",
+                    placeholder: "Write or say today's entry",
+                    aria_label: "Journal entry",
+                    value: "{entry}",
+                    oninput: move |e| entry.set(e.value()),
+                }
+                MicButton { target: "journal", on_text: move |t: String| { let v = append_text(&entry.peek(), &t); entry.set(v) } }
+                button {
+                    class: "btn btn-primary", r#type: "button", disabled: entry().trim().is_empty() || !live.paired(),
+                    onclick: move |_| {
+                        let t = entry.peek().trim().to_string();
+                        if !t.is_empty() {
+                            live.add_journal(&t);
+                            entry.set(String::new());
+                            spawn(async move {
+                                crate::live::net::sleep_ms(1500).await;
+                                live.load_journal().await;
+                            });
+                        }
+                    },
+                    "Add"
+                }
+            }
             div { class: "ph-list",
                 match journal {
                     None => rsx! { div { class: "ph-row ph-muted", span { class: "ph-text", if live.paired() { "Loading…" } else { "Pair this device to read your journal." } } } },

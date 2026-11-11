@@ -370,6 +370,26 @@ impl NoraStore {
         Ok(rows.collect::<rusqlite::Result<Vec<_>>>()?)
     }
 
+    /// Outbox items created since `since` (any status), oldest first.
+    pub fn grok_outbox_since(&self, since: i64) -> Result<Vec<OutboxItem>> {
+        let c = self.conn();
+        let mut stmt = c.prepare(
+            "SELECT id, kind, text, status, created_at FROM nora_grok_outbox WHERE created_at >= ?1 ORDER BY id",
+        )?;
+        let rows = stmt.query_map([since], |r| {
+            Ok(OutboxItem { id: r.get(0)?, kind: r.get(1)?, text: r.get(2)?, status: r.get(3)?, created_at: r.get(4)? })
+        })?;
+        Ok(rows.collect::<rusqlite::Result<Vec<_>>>()?)
+    }
+
+    pub fn grok_item(&self, id: i64) -> Result<OutboxItem> {
+        Ok(self.conn().query_row(
+            "SELECT id, kind, text, status, created_at FROM nora_grok_outbox WHERE id = ?1",
+            [id],
+            |r| Ok(OutboxItem { id: r.get(0)?, kind: r.get(1)?, text: r.get(2)?, status: r.get(3)?, created_at: r.get(4)? }),
+        )?)
+    }
+
     pub fn mark_grok(&self, id: i64, status: &str, error: Option<&str>) -> Result<()> {
         self.conn().execute(
             "UPDATE nora_grok_outbox SET status = ?2, error = ?3, sent_at = ?4 WHERE id = ?1",

@@ -6,7 +6,7 @@
 //! - **Missed calls**: a call still ringing after [`RING_SECS`] becomes a message (ring once).
 //! - **Heartbeat** at the top of every hour (rules first; off by default).
 //! - **Consolidation** at 03:00 for the day before (off by default).
-//! - **Grok outbox** flushed every 10 s through the write side (a no-op until it exists).
+//! - The Grok outbox is flushed by its own task, [`crate::grok_write::run`].
 
 use std::time::Duration;
 
@@ -35,12 +35,14 @@ pub async fn run(nora: Nora) {
             _ = tick.tick() => {}
         }
         ticks += 1;
+        let t = ticks;
         let n = nora.clone();
         let fired = tokio::task::spawn_blocking(move || -> Result<()> {
             fire_due_alarms(&n)?;
             missed_calls(&n)?;
-            if ticks.is_multiple_of(10) {
-                crate::grok::flush_outbox(&n, n.grok_writer())?;
+            // The 21:00 close-the-day call check runs every 15 s. (The Grok outbox has its own task.)
+            if t.is_multiple_of(15) {
+                crate::call::close_day_tick(&n)?;
             }
             Ok(())
         })

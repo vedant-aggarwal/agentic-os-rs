@@ -359,6 +359,11 @@ impl Live {
         self.write("habit_add", args);
     }
 
+    /// A journal entry, in his words (voice dictation or typed).
+    pub fn add_journal(&mut self, text: &str) {
+        self.write("journal_add", json!({ "text": text }));
+    }
+
     pub fn log_mood(&mut self, valence: f64, energy: i64, reasons: Vec<String>) {
         self.write("mood_log", json!({ "valence": valence, "energy": energy, "reasons": reasons }));
     }
@@ -443,6 +448,7 @@ impl Live {
                             live.get_or_insert_with(String::new).push_str(&t);
                         }
                         "turn_done" => me.nora_live.set(None),
+                        t if t.starts_with("call_") || t == "orb_state" => crate::call::on_server_event(&ev),
                         "resync" => {
                             let mut m2 = me;
                             spawn(async move { m2.load_nora().await });

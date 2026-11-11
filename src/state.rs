@@ -109,6 +109,11 @@ impl AppState {
     }
 
     pub fn open_sheet(&mut self, kind: SheetKind) {
+        // "Call Nora" anywhere starts the real call (crate::call), not a sheet.
+        if kind == SheetKind::Call {
+            crate::call::request_start(None);
+            return;
+        }
         if kind == SheetKind::Capture {
             self.capture_for.set(None);
         }

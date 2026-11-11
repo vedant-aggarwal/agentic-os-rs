@@ -5,6 +5,7 @@
 
 use dioxus::prelude::*;
 
+use crate::components::voice::{MicButton, append_text};
 use crate::components::{Icon, IconName};
 use crate::data::goal::Goal;
 use crate::live::{self, AreaTasks, HabitView, Live, Task, TaskNode, TodayView};
@@ -283,6 +284,7 @@ fn AddTask() -> Element {
                     }
                 },
             }
+            MicButton { target: "task-add", on_text: move |t: String| { let v = append_text(&draft.peek(), &t); draft.set(v) } }
             select {
                 class: "lt-select",
                 aria_label: "Area",
@@ -352,6 +354,7 @@ fn Habits(today: TodayView) -> Element {
                         }
                     },
                 }
+                MicButton { target: "habit-add", on_text: move |t: String| { let v = append_text(&draft.peek(), &t); draft.set(v) } }
             }
         } else {
             button { class: "lt-substep", r#type: "button", onclick: move |_| adding.set(true), "+ habit" }

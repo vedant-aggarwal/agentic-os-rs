@@ -3,6 +3,7 @@
 
 use dioxus::prelude::*;
 
+use crate::components::voice::{append_text, MicButton};
 use crate::components::{Icon, IconName};
 use crate::data::sample::{BLOCKS, CORE, DATE_LABEL, SESSIONS, TASKS};
 use crate::pages::home::topbar::NORA_ROUND;
@@ -109,7 +110,6 @@ pub fn WaveSheet() -> Element {
 pub fn CaptureSheet() -> Element {
     let mut state = use_context::<AppState>();
     let mut text = use_signal(String::new);
-    let mut listening = use_signal(|| false);
     let (title, hint) = (state.capture_for)().unwrap_or_else(|| {
         ("Capture".to_string(), "A thought, a task, a reason. It goes to the Inbox.".to_string())
     });
@@ -119,28 +119,20 @@ pub fn CaptureSheet() -> Element {
             p { class: "sheet-sub", "{hint}" }
             textarea {
                 class: "cap-field",
-                placeholder: "Type it, or hold the mic",
+                placeholder: "Type it, or tap the mic",
                 aria_label: "Capture",
                 rows: "3",
                 value: "{text}",
                 oninput: move |e| text.set(e.value()),
             }
             div { class: "cap-row",
-                button {
-                    class: "cap-mic",
-                    class: if listening() { "on" },
-                    r#type: "button",
-                    aria_pressed: if listening() { "true" } else { "false" },
-                    aria_label: "Voice",
-                    onclick: move |_| listening.toggle(),
-                    Icon { name: IconName::Mic, size: 24, stroke: 2.0 }
-                    span { class: "cap-bars", aria_hidden: "true",
-                        for i in 0..5 { span { key: "{i}", style: "--i: {i}" } }
-                    }
+                MicButton {
+                    target: "capture",
+                    class: "mic-lg",
+                    size: 24,
+                    on_text: move |t: String| { let v = append_text(&text.peek(), &t); text.set(v) },
                 }
-                span { class: "cap-hint",
-                    if listening() { "Voice capture arrives with the native build" } else { "Voice" }
-                }
+                span { class: "cap-hint", "Tap the mic, speak, tap again" }
                 button {
                     class: "btn btn-primary",
                     r#type: "button",

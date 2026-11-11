@@ -50,6 +50,7 @@ fn Shell() -> Element {
         AppState::new(lock_param != Some(Switch::Off), mode_param == Some(Mode::Safe))
     });
     let _live = crate::live::use_live_provider();
+    let _voice = crate::components::voice::use_voice_provider(state);
     use_live_toasts(state);
     use_layer_gestures(state);
     use_safe_mode_store(state, lock_param == Some(Switch::Off) && mode_param.is_none());
@@ -67,7 +68,9 @@ fn Shell() -> Element {
             SheetHost {}
             UnlockLayer {}
             PairLayer {}
+            crate::call::CallRoot {}
             Toast {}
+            crate::components::voice::VoiceHost {}
         }
     }
 }

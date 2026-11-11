@@ -3,6 +3,7 @@ pub mod icon;
 pub mod nav;
 pub mod ring;
 pub mod sheet;
+pub mod voice;
 pub mod work;
 
 pub use icon::{Icon, IconName};

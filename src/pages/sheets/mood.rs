@@ -4,6 +4,7 @@
 
 use dioxus::prelude::*;
 
+use crate::components::voice::{MicButton, append_text};
 use crate::components::{Icon, IconName};
 use crate::data::mood::{reasons, Checkin, ENERGY, MOODS, MOOD_HUES};
 use crate::data::Time;
@@ -19,6 +20,7 @@ pub fn MoodSheet() -> Element {
     let mut energy = use_signal(|| last.as_ref().map_or(2, |c| c.energy));
     let mut step = use_signal(|| 1u8);
     let mut picked = use_signal(Vec::<&'static str>::new);
+    let mut note = use_signal(String::new);
 
     let m = mood();
     let e = energy();
@@ -112,6 +114,16 @@ pub fn MoodSheet() -> Element {
                         }
                     }
                 }
+                div { class: "mood-why",
+                    textarea {
+                        rows: "2",
+                        placeholder: "Or say it in your words",
+                        aria_label: "Why, in your words",
+                        value: "{note}",
+                        oninput: move |ev| note.set(ev.value()),
+                    }
+                    MicButton { target: "mood-why", on_text: move |t: String| { let v = append_text(&note.peek(), &t); note.set(v) } }
+                }
                 div { class: "sheet-actions",
                     button {
                         class: "btn btn-glass",
@@ -126,7 +138,11 @@ pub fn MoodSheet() -> Element {
                         onclick: move |_| {
                             let now = chrono::Local::now();
                             let at = Time::new(chrono::Timelike::hour(&now) as u8, chrono::Timelike::minute(&now) as u8);
-                            let reasons: Vec<String> = picked().iter().map(|r| r.to_string()).collect();
+                            let mut reasons: Vec<String> = picked().iter().map(|r| r.to_string()).collect();
+                            let own = note.peek().trim().to_string();
+                            if !own.is_empty() {
+                                reasons.push(own);
+                            }
                             live.log_mood((m as f64 - 3.0) / 3.0, e as i64 + 1, reasons);
                             state.checkin.set(Some(Checkin { mood: m, energy: e, reasons: picked(), at }));
                             state.close_sheet();

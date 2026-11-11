@@ -35,6 +35,11 @@ pub struct ChildProc {
 
 /// Start `bin args...` in `cwd`. `env_remove` drops variables that would confuse a nested CLI.
 pub fn spawn(bin: &Path, args: &[String], cwd: &Path, env_remove: &[&str]) -> Result<ChildProc> {
+    spawn_env(bin, args, cwd, env_remove, &[])
+}
+
+/// [`spawn`] with extra environment variables set (`CODEX_HOME` for Nora's calls).
+pub fn spawn_env(bin: &Path, args: &[String], cwd: &Path, env_remove: &[&str], env_set: &[(&str, &str)]) -> Result<ChildProc> {
     if !cwd.is_dir() {
         return Err(WorkError::Invalid(format!("folder does not exist: {}", cwd.display())));
     }
@@ -46,6 +51,9 @@ pub fn spawn(bin: &Path, args: &[String], cwd: &Path, env_remove: &[&str]) -> Re
             .stderr(Stdio::piped());
         for k in env_remove {
             c.env_remove(k);
+        }
+        for (k, v) in env_set {
+            c.env(k, v);
         }
     });
     #[cfg(windows)]

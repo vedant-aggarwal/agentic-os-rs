@@ -20,6 +20,8 @@ pub struct AppState {
     pub tracker: TaskTracker,
     /// Cancelled when the server starts shutting down; long-lived streams end on it.
     pub shutdown: CancellationToken,
+    /// Voice takes on disk and the speech-to-text engine (Codex).
+    pub voice: Arc<crate::voice::Voice>,
 }
 
 impl AppState {
@@ -36,6 +38,7 @@ impl AppState {
             bus: EventBus::new(1024),
             tracker: TaskTracker::new(),
             shutdown: CancellationToken::new(),
+            voice: Arc::new(crate::voice::Voice::from_env()),
         }
     }
 

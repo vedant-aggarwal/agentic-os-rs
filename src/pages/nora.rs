@@ -5,6 +5,7 @@
 
 use dioxus::prelude::*;
 
+use crate::components::voice::{append_text, MicButton};
 use crate::components::{Icon, IconName};
 use crate::live::{Live, NoraMsg};
 use crate::state::{AppState, SheetKind};
@@ -164,6 +165,11 @@ pub fn NoraPage() -> Element {
                             send();
                         }
                     },
+                }
+                MicButton {
+                    target: "nora",
+                    size: 20,
+                    on_text: move |t: String| { let v = append_text(&draft.peek(), &t); draft.set(v) },
                 }
                 button {
                     class: "np-send",

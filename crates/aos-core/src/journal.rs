@@ -70,7 +70,8 @@ impl Store {
                 )
                 .ok()
                 .flatten();
-            let xp_delta = xp::set_award(tx, "journal", &day_key, area.as_deref(), xp::JOURNAL_XP, date)?;
+            // A call write-up (kind `call`) is kept with the journal but is not journaling: no XP.
+            let xp_delta = if kind == "call" { 0 } else { xp::set_award(tx, "journal", &day_key, area.as_deref(), xp::JOURNAL_XP, date)? };
             let entry =
                 tx.query_row(&format!("SELECT {COLS} FROM journal_entry WHERE id = ?1"), [&id], entry_from_row)?;
             Ok(JournalAdded { entry, xp_delta })
@@ -100,7 +101,7 @@ impl Store {
     pub fn journal_written_on(&self, day: NaiveDate) -> Result<bool> {
         self.read(|c| {
             Ok(c.query_row(
-                "SELECT EXISTS(SELECT 1 FROM journal_entry WHERE date = ?1)",
+                "SELECT EXISTS(SELECT 1 FROM journal_entry WHERE date = ?1 AND kind != 'call')",
                 [day],
                 |r| r.get(0),
             )?)

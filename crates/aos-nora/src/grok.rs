@@ -7,12 +7,11 @@
 //! ids to names. We watch the folder with `notify` (debounced), parse Nora's transcript and append
 //! new entries to the thread, deduped by entry id. **Read only: these files are never written.**
 //!
-//! **Write side** (not built): typing into the Grok window through accessibility. [`GrokWriter`]
-//! is the seam; the outbox (`nora_grok_outbox`) already collects turn summaries and `grok_ask`
-//! messages for it.
+//! **Write side**: [`GrokWriter`] types into the Grok window ([`crate::grok_uia`]); the queue,
+//! retries and transcript confirmation live in [`crate::grok_write`]. Our own typed messages come
+//! back through the transcript as `user` entries and are skipped by [`ingest`] (see [`crate::grok_write::is_own_echo`]).
 
 use std::path::{Path, PathBuf};
-use std::sync::Arc;
 use std::time::Duration;
 
 use anyhow::{Context, Result};
@@ -51,19 +50,42 @@ impl GrokConfig {
     }
 }
 
-/// The write side: send text into Nora's Grok Bot chat.
-pub trait GrokWriter: Send + Sync {
-    fn send(&self, text: &str) -> Result<(), String>;
+/// Why a send did not happen. Only [`WriteError::Failed`] counts against the retry budget.
+#[derive(Debug, Clone, PartialEq)]
+pub enum WriteError {
+    /// Grok Bot is not running and could not be started in time.
+    NotRunning(String),
+    /// Windows is locked: wait for him.
+    Locked,
+    /// Grok is still replying, or a draft sits in the composer: try again shortly.
+    Busy(String),
+    Failed(String),
 }
 
-/// TODO(grok-write): type into the Grok Bot window through UI Automation (find the composer of
-/// Nora's chat, set its value, press Enter), queue while Grok is busy, and tag our own messages
-/// so the read side doesn't import them back as his words.
+impl std::fmt::Display for WriteError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            WriteError::NotRunning(m) | WriteError::Busy(m) | WriteError::Failed(m) => f.write_str(m),
+            WriteError::Locked => f.write_str("Windows is locked"),
+        }
+    }
+}
+
+/// The write side: put text into Nora's Grok Bot chat and press send. Confirmation (the entry
+/// showing up in the transcript) is the runner's job, see [`crate::grok_write`].
+pub trait GrokWriter: Send + Sync {
+    fn send(&self, text: &str) -> Result<(), WriteError>;
+    fn describe(&self) -> String {
+        "none".into()
+    }
+}
+
+/// Used where UI Automation is unavailable (non-Windows, tests, `AOS_GROK_WRITE=0`).
 pub struct NotYetWriter;
 
 impl GrokWriter for NotYetWriter {
-    fn send(&self, _text: &str) -> Result<(), String> {
-        Err("Grok write side not built yet".into())
+    fn send(&self, _text: &str) -> Result<(), WriteError> {
+        Err(WriteError::Failed("Grok write side is off".into()))
     }
 }
 
@@ -158,6 +180,9 @@ pub fn ingest(nora: &Nora, chat_id: &str, path: &Path) -> Result<usize> {
     };
     let mut added = 0;
     for e in entries.into_iter().filter(|e| e.at >= since) {
+        if e.role == "user" && crate::grok_write::is_own_echo(store, &e) {
+            continue;
+        }
         let mut m = NewMsg::new(if e.role == "user" { "user" } else { "grok" }, "grok", "message", e.text);
         m.at = Some(e.at);
         m.external_id = Some(format!("grok:{chat_id}:{}", e.id));
@@ -233,21 +258,6 @@ pub async fn watch(nora: Nora) {
         }
     }
     drop(debouncer);
-}
-
-/// Flush the outbox through the writer. Nothing leaves while the writer is [`NotYetWriter`].
-pub fn flush_outbox(nora: &Nora, writer: &Arc<dyn GrokWriter>) -> Result<usize> {
-    let mut sent = 0;
-    for item in nora.db().grok_queue(20)? {
-        match writer.send(&item.text) {
-            Ok(()) => {
-                nora.db().mark_grok(item.id, "sent", None)?;
-                sent += 1;
-            }
-            Err(_) => break, // keep it queued
-        }
-    }
-    Ok(sent)
 }
 
 #[cfg(test)]

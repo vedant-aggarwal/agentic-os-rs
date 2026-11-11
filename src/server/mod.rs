@@ -27,16 +27,20 @@ pub fn launch(app: fn() -> Element) {
         let nora = aos_nora::Nora::start(nora_cfg)?;
         nora.install_global();
         registry.extend(aos_nora::tools::tools(&nora));
+        // Voice calls: Codex realtime for the voice, hand-offs as Claude turns.
+        let calls = aos_nora::call::Calls::start(nora.clone(), aos_nora::call::CallConfig::from_env())?;
+        registry.extend(aos_nora::call::tools(&nora));
         // Inbox: WhatsApp (wacli), Gmail (gws) and Laya triage run as supervised workers.
         let inbox = aos_inbox::Inbox::start(&config.db_path, aos_inbox::InboxConfig::load())?;
         registry.extend(aos_inbox::tools::tools_with(&inbox));
         let auth_store = std::sync::Arc::new(aos_work::AuthStore::open(&config.db_path)?);
         let work_routes = aos_work::http::router_with_auth(work.clone(), auth_store.clone());
         let nora_routes = aos_nora::http::router_with_auth(nora.clone(), auth_store.clone());
+        let call_routes = aos_nora::call::http::router_with_auth(calls, auth_store.clone());
         // Dioxus server functions live under /api/ and need a device token, like /api/work.
         let ui = aos_server::auth::require_device_under(dioxus::server::router(app), auth_store, "/api/");
         // API routes first; the Dioxus router brings assets, server functions and the SSR fallback.
-        let served = aos_server::serve_with(config, registry, move |api| api.merge(work_routes).merge(nora_routes).merge(ui)).await;
+        let served = aos_server::serve_with(config, registry, move |api| api.merge(work_routes).merge(nora_routes).merge(call_routes).merge(ui)).await;
         nora.stop();
         work.stop_all();
         inbox.stop();

@@ -28,5 +28,8 @@ notify = "8"
 notify-debouncer-mini = "0.7"
 data-encoding = "2.11"
 
+[target.'cfg(windows)'.dependencies]
+uiautomation = "0.25"
+
 [dev-dependencies]
 tokio = { workspace = true, features = ["test-util"] }

@@ -5,6 +5,7 @@ use aos_work::types::*;
 use dioxus::prelude::*;
 
 use super::{StatusPill, WI, WIcon, WorkSheet, model_label};
+use crate::components::voice::{MicButton, append_text};
 use crate::pages::work::{WorkUi, api};
 
 enum Entry {
@@ -253,6 +254,7 @@ fn Composer(thread_id: String, busy: bool) -> Element {
                     }
                 },
             }
+            MicButton { target: "work-composer", on_text: move |t: String| { let v = append_text(&text.peek(), &t); text.set(v) } }
             button { class: "wk-send", r#type: "button", aria_label: "Send", disabled: sending() || text.read().trim().is_empty(),
                 onclick: move |_| send(id_btn.clone()),
                 WI { name: WIcon::Send, size: 18 }

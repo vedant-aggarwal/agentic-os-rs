@@ -74,16 +74,41 @@ pub fn TopBar() -> Element {
 }
 
 /// Nora's round avatar. The ring shows her state; a dot means she has something for him.
+/// Tap opens her page; a long press (0.5 s) calls her.
 #[component]
 pub fn NoraButton() -> Element {
     let mut state = use_context::<AppState>();
+    let mut pressing = use_signal(|| false);
+    let mut long_fired = use_signal(|| false);
+    let mood = crate::call::CALL.read().mood();
+    let ring_state = if mood == "idle" { "ready" } else { mood };
     rsx! {
         button {
             class: "nora-btn",
             r#type: "button",
-            "data-state": "ready",
-            aria_label: "Nora. She has your brief",
-            onclick: move |_| state.nora.set(true),
+            "data-state": "{ring_state}",
+            aria_label: "Nora. Tap to open, hold to call",
+            onpointerdown: move |_| {
+                pressing.set(true);
+                long_fired.set(false);
+                spawn(async move {
+                    live::net::sleep_ms(500).await;
+                    if pressing() {
+                        long_fired.set(true);
+                        crate::call::request_start(None);
+                    }
+                });
+            },
+            onpointerup: move |_| pressing.set(false),
+            onpointerleave: move |_| pressing.set(false),
+            oncontextmenu: move |e| e.prevent_default(),
+            onclick: move |_| {
+                if long_fired() {
+                    long_fired.set(false);
+                } else {
+                    state.nora.set(true);
+                }
+            },
             span { class: "nb-ring", aria_hidden: "true" }
             img { class: "nb-face", src: NORA_ROUND, alt: "" }
             span { class: "nb-dot", aria_hidden: "true" }

@@ -5,6 +5,7 @@ use dioxus::prelude::*;
 
 pub const AURA_CSS: Asset = asset!("/assets/aura.css");
 pub const LIVE_CSS: Asset = asset!("/assets/live.css");
+pub const CALL_CSS: Asset = asset!("/assets/call.css");
 
 /// Geist and Geist Mono (OFL) are bundled so a phone with no network on first launch
 /// renders the same face as the web build.
@@ -26,5 +27,6 @@ pub fn Head() -> Element {
         }
         document::Stylesheet { href: AURA_CSS }
         document::Stylesheet { href: LIVE_CSS }
+        document::Stylesheet { href: CALL_CSS }
     }
 }

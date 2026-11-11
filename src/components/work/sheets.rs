@@ -5,6 +5,7 @@ use aos_work::types::*;
 use dioxus::prelude::*;
 
 use super::{WI, WIcon, WorkSheet};
+use crate::components::voice::{MicButton, append_text};
 use crate::pages::work::{WorkUi, api};
 
 #[derive(Clone, Copy, PartialEq)]
@@ -168,7 +169,10 @@ pub fn NewThreadSheet() -> Element {
             SettingsBlock { s }
             label { class: "wk-field",
                 span { "First message" }
-                textarea { class: "wk-area", rows: "4", placeholder: "What should it do?", value: "{prompt}", oninput: move |e| prompt.set(e.value()) }
+                div { style: "display:flex;gap:8px;align-items:flex-start",
+                    textarea { class: "wk-area", style: "flex:1;min-width:0", rows: "4", placeholder: "What should it do?", value: "{prompt}", oninput: move |e| prompt.set(e.value()) }
+                    MicButton { target: "work-new", on_text: move |t: String| { let v = append_text(&prompt.peek(), &t); prompt.set(v) } }
+                }
             }
             if let Some(e) = err() { p { class: "wk-banner", "{e}" } }
             div { class: "wk-sheet-foot",

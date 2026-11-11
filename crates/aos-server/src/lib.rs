@@ -10,6 +10,7 @@ pub mod events;
 pub mod limit;
 pub mod routes;
 pub mod state;
+pub mod voice;
 
 use std::net::SocketAddr;
 use std::path::PathBuf;

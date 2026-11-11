@@ -15,7 +15,7 @@ use tracing::{info, warn};
 
 use crate::engine::{ClaudeCli, Engine, TurnRequest, TurnUpdate};
 use crate::events::{Bus, NoraEvent};
-use crate::grok::{GrokConfig, GrokWriter, NotYetWriter};
+use crate::grok::{GrokConfig, GrokWriter};
 use crate::prompt;
 use crate::store::{Msg, NewMsg, NoraStore, now_ms};
 
@@ -90,7 +90,7 @@ pub(crate) struct Inner {
     pub core: Arc<Store>,
     pub bus: Bus,
     pub engine: Arc<dyn Engine>,
-    pub writer: Arc<dyn GrokWriter>,
+    pub writer: Mutex<Arc<dyn GrokWriter>>,
     kick: mpsc::UnboundedSender<()>,
     kick_rx: Mutex<Option<mpsc::UnboundedReceiver<()>>>,
     mcp_config: Mutex<Option<String>>,
@@ -112,13 +112,14 @@ impl Nora {
         let db = NoraStore::open(&cfg.db_path)?;
         db.fail_running_turns()?;
         let (kick, kick_rx) = mpsc::unbounded_channel();
+        let writer = crate::grok_write::default_writer(&cfg.grok);
         Ok(Nora(Arc::new(Inner {
             cfg,
             db,
             core: Arc::new(core),
             bus: Bus::new(),
             engine,
-            writer: Arc::new(NotYetWriter),
+            writer: Mutex::new(writer),
             kick,
             kick_rx: Mutex::new(Some(kick_rx)),
             mcp_config: Mutex::new(None),
@@ -137,6 +138,7 @@ impl Nora {
         nora.spawn_turn_worker();
         tokio::spawn(crate::scheduler::run(nora.clone()));
         tokio::spawn(crate::grok::watch(nora.clone()));
+        tokio::spawn(crate::grok_write::run(nora.clone()));
         info!("nora started");
         Ok(nora)
     }
@@ -173,9 +175,13 @@ impl Nora {
         self.0.shutdown.clone()
     }
 
-    /// The Grok Bot write side (a stub until it is built).
-    pub fn grok_writer(&self) -> &Arc<dyn GrokWriter> {
-        &self.0.writer
+    /// The Grok Bot write side (UI Automation on Windows, see [`crate::grok_uia`]).
+    pub fn grok_writer(&self) -> Arc<dyn GrokWriter> {
+        self.0.writer.lock().unwrap_or_else(|e| e.into_inner()).clone()
+    }
+
+    pub fn set_grok_writer(&self, w: Arc<dyn GrokWriter>) {
+        *self.0.writer.lock().unwrap_or_else(|e| e.into_inner()) = w;
     }
 
     pub fn engine(&self) -> &Arc<dyn Engine> {
@@ -196,7 +202,7 @@ impl Nora {
         Ok(())
     }
 
-    fn mcp_config(&self) -> Option<String> {
+    pub(crate) fn mcp_config(&self) -> Option<String> {
         self.0.mcp_config.lock().unwrap_or_else(|e| e.into_inner()).clone()
     }
 
