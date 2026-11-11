@@ -57,10 +57,20 @@ jobs:
         with:
           key: ios
           cache-bin: false
+      # binstall finds no prebuilt dx for macOS arm64 and compiles it (about 16 minutes), so keep the binary.
+      - name: Cached Dioxus CLI
+        id: dx-cache
+        uses: actions/cache@v4
+        with:
+          path: ~/.cargo/bin/dx
+          key: dx-${{ env.DX_VERSION }}-${{ runner.os }}-${{ runner.arch }}
       - uses: cargo-bins/cargo-binstall@main
+        if: steps.dx-cache.outputs.cache-hit != 'true'
       - name: Dioxus CLI
         run: |
-          cargo binstall dioxus-cli@$DX_VERSION --no-confirm --force
+          if [ "${{ steps.dx-cache.outputs.cache-hit }}" != "true" ]; then
+            cargo binstall dioxus-cli@$DX_VERSION --no-confirm --force
+          fi
           dx --version
       - name: App Store Connect key
         env:
