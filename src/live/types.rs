@@ -293,7 +293,7 @@ pub struct HeroGoal {
 impl Profile {
     /// Built into this binary from `assets/personal/profile.json`, or empty.
     pub fn bundled() -> Profile {
-        serde_json::from_str(include_str!(concat!(env!("OUT_DIR"), "/profile.json"))).unwrap_or_default()
+        option_env!("AOS_PROFILE_JSON").and_then(|s| serde_json::from_str(s).ok()).unwrap_or_default()
     }
 
     pub fn display_name(&self) -> String {

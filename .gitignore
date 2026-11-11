@@ -8,5 +8,6 @@ seed.local.toml
 .aos/
 
 # personal 3D assets (his character, companion, presets): never committed
-/assets/personal/
+/assets/personal/*
+!/assets/personal/.gitkeep
 /hero3d-src/node_modules/
