@@ -67,7 +67,7 @@ echo "Executable: $EXE"; lipo -info "$APP/$EXE"; otool -l "$APP/$EXE" | grep -A4
 # Find any other Mach-O in the bundle (dx can ship helpers); each is signed before the app.
 echo "Mach-O files in the bundle:"
 find "$APP" -type f -print0 | while IFS= read -r -d '' f; do
-  file -b "$f" | grep -q "Mach-O" && echo "  ${f#$APP/}"
+  case "$(file -b "$f")" in *Mach-O*) echo "  ${f#$APP/}";; esac
 done
 
 # 1) Sign with the run's Apple Distribution identity, inside-out, profile embedded.
