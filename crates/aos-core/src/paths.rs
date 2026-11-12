@@ -29,3 +29,11 @@ pub fn media_dir() -> PathBuf {
         .map(PathBuf::from)
         .unwrap_or_else(|| aos_home().join("media"))
 }
+
+/// Personal files the apps fetch from the server (hero presets, 3D models), unless
+/// `AOS_PERSONAL` says otherwise. Never in the repo.
+pub fn personal_dir() -> PathBuf {
+    std::env::var_os("AOS_PERSONAL")
+        .map(PathBuf::from)
+        .unwrap_or_else(|| aos_home().join("personal"))
+}

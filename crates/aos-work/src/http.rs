@@ -8,6 +8,9 @@
 //! | GET | `/api/work/threads?project=` | list threads |
 //! | POST | `/api/work/threads` | [`NewThread`] create (and send the first prompt) |
 //! | GET | `/api/work/threads/{id}` | [`ThreadDetail`] |
+//! | DELETE | `/api/work/threads/{id}` | delete the thread (stops its CLI; files stay) |
+//! | GET | `/api/work/t3/threads?project=&limit=` | T3 Code's own threads, read only |
+//! | GET | `/api/work/t3/threads/{id}` | one T3 thread with its last 200 messages |
 //! | POST | `/api/work/threads/{id}/messages` | `{text}` |
 //! | POST | `/api/work/threads/{id}/interrupt` | |
 //! | GET | `/api/work/threads/{id}/diff` | [`ThreadDiff`] |
@@ -76,7 +79,9 @@ pub fn router(work: Work) -> Router {
     Router::new()
         .route("/api/work/projects", get(projects).post(add_project))
         .route("/api/work/threads", get(threads).post(create_thread))
-        .route("/api/work/threads/{id}", get(thread))
+        .route("/api/work/threads/{id}", get(thread).delete(delete_thread))
+        .route("/api/work/t3/threads", get(t3_threads))
+        .route("/api/work/t3/threads/{id}", get(t3_thread))
         .route("/api/work/threads/{id}/messages", post(send))
         .route("/api/work/threads/{id}/interrupt", post(interrupt))
         .route("/api/work/threads/{id}/diff", get(diff))
@@ -130,6 +135,32 @@ async fn create_thread(State(w): State<Work>, Json(a): Json<NewThread>) -> R<Thr
 
 async fn thread(State(w): State<Work>, Path(id): Path<String>) -> R<ThreadDetail> {
     Ok(Json(w.thread(&id)?))
+}
+
+async fn delete_thread(State(w): State<Work>, Path(id): Path<String>) -> R<serde_json::Value> {
+    w.delete_thread(&id)?;
+    Ok(Json(json!({ "deleted": id })))
+}
+
+#[derive(Deserialize)]
+struct T3Query {
+    project: Option<String>,
+    limit: Option<usize>,
+}
+
+async fn t3_threads(State(w): State<Work>, Query(q): Query<T3Query>) -> R<Vec<serde_json::Value>> {
+    // T3's database can be large: read it off the async workers.
+    let rows = tokio::task::spawn_blocking(move || w.t3_threads(q.project.as_deref(), q.limit.unwrap_or(100)))
+        .await
+        .map_err(|e| WorkError::Io(std::io::Error::other(e.to_string())))??;
+    Ok(Json(rows))
+}
+
+async fn t3_thread(State(w): State<Work>, Path(id): Path<String>) -> R<serde_json::Value> {
+    let v = tokio::task::spawn_blocking(move || w.t3_thread(&id))
+        .await
+        .map_err(|e| WorkError::Io(std::io::Error::other(e.to_string())))??;
+    Ok(Json(v))
 }
 
 #[derive(Deserialize)]

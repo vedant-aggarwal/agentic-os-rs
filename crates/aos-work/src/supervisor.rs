@@ -26,6 +26,8 @@ pub struct Inner {
     bus: broadcast::Sender<WorkEvent>,
     sessions: Mutex<HashMap<String, mpsc::UnboundedSender<SessionCmd>>>,
     handle: Handle,
+    /// When T3's project list was last read (re-read at most once a minute).
+    t3_checked: Mutex<Option<std::time::Instant>>,
 }
 
 impl Inner {
@@ -90,6 +92,7 @@ impl Work {
                 bus,
                 sessions: Mutex::new(HashMap::new()),
                 handle: Handle::current(),
+                t3_checked: Mutex::new(None),
             }),
         };
         match work.import_t3() {
@@ -125,7 +128,54 @@ impl Work {
     // ------------------------------------------------------------ projects
 
     pub fn projects(&self) -> Result<Vec<Project>> {
+        self.refresh_t3();
         self.inner.store.projects()
+    }
+
+    /// Pick up projects added in T3 Code since the last look (at most once a minute).
+    fn refresh_t3(&self) {
+        if self.inner.config.t3_db.is_none() {
+            return;
+        }
+        {
+            let mut last = self.inner.t3_checked.lock().unwrap_or_else(|e| e.into_inner());
+            if last.is_some_and(|t| t.elapsed() < std::time::Duration::from_secs(60)) {
+                return;
+            }
+            *last = Some(std::time::Instant::now());
+        }
+        if let Err(e) = self.import_t3() {
+            warn!("T3 import skipped: {e}");
+        }
+    }
+
+    /// T3 Code's own threads, read only, newest first. `project` is an Agentic OS project key;
+    /// each row's `project_id` is mapped to the Agentic OS project (null when it isn't imported).
+    pub fn t3_threads(&self, project: Option<&str>, limit: usize) -> Result<Vec<serde_json::Value>> {
+        let Some(path) = self.inner.config.t3_db.clone() else { return Ok(Vec::new()) };
+        let map = self.inner.store.t3_project_map()?;
+        let t3_project = match project.filter(|s| !s.is_empty()) {
+            Some(key) => {
+                let p = self.inner.store.resolve_project(key)?;
+                match map.iter().find(|(_, aos)| **aos == p.id) {
+                    Some((t3, _)) => Some(t3.clone()),
+                    None => return Ok(Vec::new()),
+                }
+            }
+            None => None,
+        };
+        let rows = t3import::read_threads(&path, t3_project.as_deref(), limit.clamp(1, 500))?;
+        Ok(rows.into_iter().map(|t| t3_json(&t, &map)).collect())
+    }
+
+    /// One T3 thread with its last messages (read only).
+    pub fn t3_thread(&self, id: &str) -> Result<serde_json::Value> {
+        let path = self.inner.config.t3_db.clone().ok_or_else(|| WorkError::NotFound("T3 Code database".into()))?;
+        let map = self.inner.store.t3_project_map()?;
+        let (t, msgs) = t3import::read_thread(&path, id, 200)?.ok_or_else(|| WorkError::NotFound(format!("T3 thread '{id}'")))?;
+        let mut v = t3_json(&t, &map);
+        v["messages"] = serde_json::json!(msgs);
+        Ok(v)
     }
 
     pub fn add_project(&self, name: &str, folder: &str) -> Result<Project> {
@@ -343,6 +393,19 @@ impl Work {
         Ok(())
     }
 
+    /// Delete a thread and everything under it (its CLI is stopped first). The project folder and
+    /// any files the agent changed are left alone.
+    pub fn delete_thread(&self, thread_id: &str) -> Result<()> {
+        let row = self.inner.store.thread(thread_id)?;
+        if let Some(tx) = self.running(&row.summary.id) {
+            let _ = tx.send(SessionCmd::Stop);
+        }
+        self.inner.sessions.lock().unwrap_or_else(|e| e.into_inner()).remove(&row.summary.id);
+        self.inner.store.delete_thread(&row.summary.id)?;
+        self.inner.emit(WorkEvent::Resync);
+        Ok(())
+    }
+
     /// Stop every session (server shutdown).
     pub fn stop_all(&self) {
         let sessions = self.inner.sessions.lock().unwrap_or_else(|e| e.into_inner());
@@ -408,4 +471,17 @@ impl Work {
         }
         Ok(())
     }
+}
+
+fn t3_json(t: &t3import::T3Thread, map: &HashMap<String, String>) -> serde_json::Value {
+    serde_json::json!({
+        "id": t.id,
+        "project_id": map.get(&t.project_id),
+        "title": t.title,
+        "provider": t.provider,
+        "status": t.status,
+        "created_at": t.created_at,
+        "updated_at": t.updated_at,
+        "source": "t3",
+    })
 }

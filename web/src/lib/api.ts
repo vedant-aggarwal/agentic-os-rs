@@ -81,6 +81,10 @@ export const api = {
     if (isDemo) return demoGet<T>(path);
     return request<T>('GET', path);
   },
+  del<T>(path: string): Promise<T> {
+    if (isDemo) return demoGet<T>(path);
+    return request<T>('DELETE', path);
+  },
   post<T>(path: string, body: unknown = {}, timeoutMs?: number): Promise<T> {
     if (isDemo) return demoGet<T>(path);
     return request<T>('POST', path, body, timeoutMs);

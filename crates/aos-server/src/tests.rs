@@ -314,3 +314,42 @@ async fn mind_save_from_a_share_sheet() {
     let (code, _) = send(&s, "POST", "/api/mind/save", Some(&t), json!({})).await;
     assert_eq!(code, StatusCode::BAD_REQUEST);
 }
+
+#[tokio::test]
+async fn personal_files_need_a_token_and_stay_inside_the_folder() {
+    let dir = std::env::temp_dir().join(format!("aos-personal-srv-{}", aos_core::ids::new_id()));
+    std::fs::create_dir_all(dir.join("character")).unwrap();
+    std::fs::write(dir.join("hero3d.json"), br#"{"maxLevel":30}"#).unwrap();
+    std::fs::write(dir.join("character").join("stage-01.glb"), b"glTF\x02\0\0\0").unwrap();
+    std::fs::write(dir.parent().unwrap().join("aos-personal-outside.txt"), b"secret").unwrap();
+    // SAFETY: only this test in the server binary reads AOS_PERSONAL.
+    unsafe { std::env::set_var("AOS_PERSONAL", &dir) };
+    let s = state();
+    let t = token(&s);
+    let get = |uri: String, etag: Option<String>| {
+        let mut req = Request::builder().uri(uri);
+        if let Some(e) = etag {
+            req = req.header(header::IF_NONE_MATCH, e);
+        }
+        api_router(s.clone()).oneshot(req.body(Body::empty()).unwrap())
+    };
+    let resp = get(format!("/api/personal/character/stage-01.glb?token={t}"), None).await.unwrap();
+    assert_eq!(resp.status(), StatusCode::OK);
+    assert_eq!(resp.headers()[header::CONTENT_TYPE], "model/gltf-binary");
+    assert!(resp.headers()[header::CACHE_CONTROL].to_str().unwrap().starts_with("private"));
+    let etag = resp.headers()[header::ETAG].to_str().unwrap().to_string();
+    let resp = get(format!("/api/personal/character/stage-01.glb?token={t}"), Some(etag.clone())).await.unwrap();
+    assert_eq!(resp.status(), StatusCode::NOT_MODIFIED);
+    let resp = get(format!("/api/personal/character/stage-01.glb?token={t}"), Some(format!("W/{etag}"))).await.unwrap();
+    assert_eq!(resp.status(), StatusCode::NOT_MODIFIED, "a weakened tag still matches");
+    let resp = get(format!("/api/personal/hero3d.json?token={t}"), None).await.unwrap();
+    assert_eq!(resp.headers()[header::CONTENT_TYPE], "application/json");
+    assert_eq!(&to_bytes(resp.into_body(), 1 << 20).await.unwrap()[..], br#"{"maxLevel":30}"#);
+    let (code, _) = send(&s, "GET", "/api/personal/hero3d.json", None, Value::Null).await;
+    assert_eq!(code, StatusCode::UNAUTHORIZED);
+    for bad in ["character", "../aos-personal-outside.txt", "..%2faos-personal-outside.txt", "%2e%2e/aos-personal-outside.txt", "nope.json"] {
+        let resp = get(format!("/api/personal/{bad}?token={t}"), None).await.unwrap();
+        assert_eq!(resp.status(), StatusCode::NOT_FOUND, "{bad}");
+    }
+    let _ = std::fs::remove_dir_all(&dir);
+}

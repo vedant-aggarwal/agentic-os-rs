@@ -22,7 +22,10 @@ export type Sheet =
   | { kind: 'wave' }
   | { kind: 'print' }
   | { kind: 'plan' }
-  | { kind: 'inbox'; item: InboxItem };
+  | { kind: 'inbox'; item: InboxItem }
+  | { kind: 'work-thread'; id: string }
+  | { kind: 't3-thread'; id: string }
+  | { kind: 'work-new'; project?: string };
 
 function tabFromHash(): Tab {
   const h = location.hash.replace(/^#\/?/, '') as Tab;

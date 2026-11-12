@@ -65,6 +65,12 @@ export const useSession = create<Session>((set) => ({
   unpair() {
     storage.set(K.token, null);
     storage.set(K.device, null);
+    // his cached hero files (hero/personal.ts) leave with the pairing
+    try {
+      indexedDB.deleteDatabase('aos-personal');
+    } catch {
+      /* no IndexedDB */
+    }
     set({ token: null, deviceId: null, needsRepair: false });
   },
   flagRepair(v) {

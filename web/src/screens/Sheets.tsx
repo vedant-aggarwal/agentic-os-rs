@@ -13,6 +13,7 @@ import { Button, Chip } from '@/ui/kit';
 import { Sheet } from '@/ui/Sheet';
 import { Ring } from '@/ui/Ring';
 import { MoodSheet } from './today/Mood';
+import { T3ThreadSheet, WorkNewSheet, WorkThreadSheet } from './WorkSheets';
 
 export function Sheets() {
   const sheet = useUI((s) => s.sheet);
@@ -39,6 +40,12 @@ function SheetFor({ sheet }: { sheet: SheetT }) {
       return <InboxItemSheet />;
     case 'plan':
       return <Plan />;
+    case 'work-thread':
+      return <WorkThreadSheet key={sheet.id} id={sheet.id} />;
+    case 't3-thread':
+      return <T3ThreadSheet id={sheet.id} />;
+    case 'work-new':
+      return <WorkNewSheet project={sheet.project} />;
   }
 }
 

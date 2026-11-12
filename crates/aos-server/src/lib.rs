@@ -12,6 +12,7 @@ pub mod limit;
 pub mod media;
 pub mod mind;
 pub mod mind_fetch;
+pub mod personal;
 pub mod routes;
 pub mod state;
 pub mod voice;

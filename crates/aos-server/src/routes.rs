@@ -15,6 +15,7 @@
 //! | `/api/voice/*` | yes | chunked audio upload and transcription (see `voice.rs`) |
 //! | `/api/media*` | yes | board images: upload, fetch from a link, serve (see `media.rs`) |
 //! | `POST /api/mind/save` | yes | save to the Mind library from a share sheet (see `mind.rs`) |
+//! | `GET /api/personal/{*path}` | yes | hero presets and 3D models from `~/.aos/personal` (see `personal.rs`) |
 
 use std::convert::Infallible;
 use std::time::Duration;
@@ -64,6 +65,7 @@ pub fn api_router(state: AppState) -> Router {
         // Images carry their own 12 MB limit, so they join after the 2 MB layer.
         .merge(crate::media::routes())
         .merge(crate::mind::routes())
+        .merge(crate::personal::routes())
         .layer(TraceLayer::new_for_http())
         .layer(CatchPanicLayer::new())
         .with_state(state)

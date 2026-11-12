@@ -1,12 +1,12 @@
 // Inbox, Life, Work and Mission: real data, simple screens.
 import { motion } from 'motion/react';
 import { useMemo, useState } from 'react';
-import { BookHeart, ChevronRight, CircleDot, FolderGit2, Inbox as InboxIcon, Mail, MessageCircle, Smartphone, Target, Telescope, TrendingUp, Zap } from 'lucide-react';
-import { useAreas, useInbox, useJournal, useLooseTasks, useMission, useProfile, useToday, useWorkProjects, useWorkThreads, useXp } from '@/lib/queries';
+import { BookHeart, ChevronRight, CircleDot, FolderGit2, Inbox as InboxIcon, Mail, MessageCircle, Plus, Smartphone, Target, Telescope, TrendingUp, Zap } from 'lucide-react';
+import { useAreas, useInbox, useJournal, useLooseTasks, useMission, useProfile, useT3Threads, useToday, useWorkProjects, useWorkThreads, useXp } from '@/lib/queries';
 import { PILLARS, PILLAR_ORDER, ago, areaIcon, dueLabel } from '@/lib/meta';
 import type { InboxItem } from '@/lib/types';
 import { useUI } from '@/lib/ui';
-import { Bar, Empty, Section, Segmented } from '@/ui/kit';
+import { Bar, Chip, Empty, Section, Segmented } from '@/ui/kit';
 import { Ring } from '@/ui/Ring';
 import { rise } from '@/ui/motion';
 import { decode } from './Sheets';
@@ -186,43 +186,103 @@ export function LifeScreen() {
 }
 
 /* ═══ Work ═══ */
+function threadDot(status?: string) {
+  const s = String(status || '');
+  if (s === 'running' || s === 'working' || s === 'starting') return { cls: 'bg-[#34d27b]', glow: '0 0 8px #34d27b' };
+  if (s === 'needs_you' || s === 'waiting') return { cls: 'bg-needs', glow: undefined };
+  if (s === 'failed' || s === 'error') return { cls: 'bg-[#ff5a4e]', glow: undefined };
+  return { cls: 'bg-ink-3', glow: undefined };
+}
+
+const PROVIDER_LABEL: Record<string, string> = { claude: 'Claude', claudeAgent: 'Claude', codex: 'Codex' };
+
 export function WorkScreen() {
   const { data: projects, error } = useWorkProjects();
   const { data: threads } = useWorkThreads();
-  const recent = useMemo(() => [...(threads || [])].sort((a, b) => Number(b.updated_at || 0) - Number(a.updated_at || 0)).slice(0, 8), [threads]);
+  const { data: t3 } = useT3Threads();
+  const open = useUI((s) => s.open);
+  const [project, setProject] = useState<string | null>(null);
+  const names = useMemo(() => new Map((projects || []).map((p) => [p.id, p.name])), [projects]);
+  // His own sessions here, and the threads he runs in T3 Code, newest first.
+  const all = useMemo(() => {
+    const mine = (threads || []).map((t) => ({ ...t, source: 'aos' }));
+    const theirs = (t3 || []).map((t) => ({ ...t, source: 't3' }));
+    return [...mine, ...theirs]
+      .filter((t) => !project || t.project_id === project)
+      .sort((a, b) => Number(b.updated_at || 0) - Number(a.updated_at || 0))
+      .slice(0, project ? 60 : 25);
+  }, [threads, t3, project]);
+  const counts = useMemo(() => {
+    const m = new Map<string, number>();
+    for (const t of [...(threads || []), ...(t3 || [])]) if (t.project_id) m.set(t.project_id, (m.get(t.project_id) || 0) + 1);
+    return m;
+  }, [threads, t3]);
   return (
     <div className="pb-8">
-      <LargeTitle title="Work" sub="Agent sessions on the PC: Claude and Codex, by project." />
+      <LargeTitle
+        title="Work"
+        sub="Agent sessions on the PC: yours here and in T3 Code, by project."
+        right={
+          <button aria-label="New session" className="press mb-1 flex size-10 items-center justify-center rounded-full bg-fill-2" onClick={() => open({ kind: 'work-new', project: project || undefined })}>
+            <Plus size={20} />
+          </button>
+        }
+      />
       {error && !projects && <p className="mx-gutter mt-6 text-subhead text-ink-2">Work didn’t load: {(error as Error).message}</p>}
-      <Section title="Sessions" meta={recent.length || undefined}>
-        {recent.length ? (
+      {!!projects?.length && (
+        <div className="no-scrollbar mt-4 flex gap-2 overflow-x-auto px-gutter">
+          <Chip active={!project} onClick={() => setProject(null)}>
+            All
+          </Chip>
+          {projects.map((p) => (
+            <Chip key={p.id} active={project === p.id} onClick={() => setProject(project === p.id ? null : p.id)}>
+              {p.name}
+            </Chip>
+          ))}
+        </div>
+      )}
+      <Section title={project ? names.get(project) || 'Sessions' : 'Sessions'} meta={all.length || undefined}>
+        {all.length ? (
           <div className="stone mx-gutter rounded-xl">
-            {recent.map((t, i) => (
-              <div key={t.id} className={`mx-4 flex items-center gap-3 py-3.5 ${i < recent.length - 1 ? 'hair' : ''}`}>
-                <span className={`size-2.5 shrink-0 rounded-full ${t.status === 'running' ? 'bg-[#34d27b]' : t.status === 'waiting' ? 'bg-needs' : 'bg-ink-3'}`} style={t.status === 'running' ? { boxShadow: '0 0 8px #34d27b' } : undefined} />
-                <span className="min-w-0 flex-1">
-                  <span className="block truncate text-body">{String(t.title || 'Untitled session')}</span>
-                  <span className="text-footnote text-ink-2">
-                    {String(t.provider || '')} {t.updated_at ? `· ${ago(Number(t.updated_at))}` : ''}
+            {all.map((t, i) => {
+              const dot = threadDot(t.status);
+              const t3row = t.source === 't3';
+              return (
+                <button
+                  key={t.source + t.id}
+                  className={`press mx-4 flex w-[calc(100%-2rem)] items-center gap-3 py-3.5 text-left ${i < all.length - 1 ? 'hair' : ''}`}
+                  onClick={() => open(t3row ? { kind: 't3-thread', id: t.id } : { kind: 'work-thread', id: t.id })}
+                >
+                  <span className={`size-2.5 shrink-0 rounded-full ${dot.cls}`} style={dot.glow ? { boxShadow: dot.glow } : undefined} />
+                  <span className="min-w-0 flex-1">
+                    <span className="block truncate text-body">{String(t.title || 'Untitled session')}</span>
+                    <span className="block truncate text-footnote text-ink-2">
+                      {[!project && t.project_id ? names.get(t.project_id) : null, PROVIDER_LABEL[String(t.provider)] || t.provider, t.updated_at ? ago(Number(t.updated_at)) : null].filter(Boolean).join(' · ')}
+                    </span>
                   </span>
-                </span>
-                <span className="text-footnote text-ink-2 capitalize">{String(t.status || '')}</span>
-              </div>
-            ))}
+                  {t3row && <span className="rounded-full bg-fill-2 px-2 py-0.5 text-caption text-ink-2">T3</span>}
+                  <ChevronRight size={16} className="shrink-0 text-ink-3" />
+                </button>
+              );
+            })}
           </div>
         ) : (
           <div className="stone mx-gutter rounded-xl">
-            <Empty icon={Zap} title="No sessions running" body="Launch one from a project on the PC, or ask Nora by voice." />
+            <Empty icon={Zap} title="No sessions yet" body="Start one in a project, or ask Nora by voice." action="New session" onAction={() => open({ kind: 'work-new', project: project || undefined })} />
           </div>
         )}
       </Section>
       <Section title="Projects" meta={projects?.length || undefined}>
         <div className="stone mx-gutter rounded-xl">
           {(projects || []).map((p, i, arr) => (
-            <div key={p.id} className="flex items-center gap-3 px-4">
+            <button key={p.id} className="press flex w-full items-center gap-3 px-4 text-left" onClick={() => setProject(p.id)}>
               <FolderGit2 size={18} className="shrink-0 text-money-ink" />
-              <span className={`flex-1 truncate py-3.5 text-body ${i < arr.length - 1 ? 'hair' : ''}`}>{p.name}</span>
-            </div>
+              <span className={`flex flex-1 items-center gap-2 py-3.5 ${i < arr.length - 1 ? 'hair' : ''}`}>
+                <span className="flex-1 truncate text-body">{p.name}</span>
+                {p.source === 't3' && <span className="text-caption text-ink-3">T3</span>}
+                {counts.get(p.id) ? <span className="text-footnote text-ink-2">{counts.get(p.id)}</span> : null}
+              </span>
+            </button>
           ))}
           {!projects?.length && <p className="p-4 text-subhead text-ink-2">No projects yet.</p>}
         </div>

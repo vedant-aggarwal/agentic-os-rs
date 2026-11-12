@@ -207,6 +207,31 @@ impl Store {
         Ok((p, true))
     }
 
+    /// T3 project id -> Agentic OS project id, for projects imported from T3 Code.
+    pub fn t3_project_map(&self) -> Result<std::collections::HashMap<String, String>> {
+        let db = self.db();
+        let mut st = db.prepare("SELECT external_id, id FROM work_project WHERE source='t3' AND external_id IS NOT NULL")?;
+        let rows = st
+            .query_map([], |r| Ok((r.get::<_, String>(0)?, r.get::<_, String>(1)?)))?
+            .collect::<rusqlite::Result<std::collections::HashMap<_, _>>>()?;
+        Ok(rows)
+    }
+
+    /// Remove a thread with its turns, items and approvals, in one transaction.
+    pub fn delete_thread(&self, id: &str) -> Result<()> {
+        let mut db = self.db();
+        let tx = db.transaction()?;
+        for table in ["work_approval", "work_item", "work_turn"] {
+            tx.execute(&format!("DELETE FROM {table} WHERE thread_id=?1"), [id])?;
+        }
+        let n = tx.execute("DELETE FROM work_thread WHERE id=?1", [id])?;
+        tx.commit()?;
+        if n == 0 {
+            return Err(WorkError::NotFound(format!("thread '{id}'")));
+        }
+        Ok(())
+    }
+
     // ---------------------------------------------------------------- threads
 
     pub fn insert_thread(&self, t: &ThreadSummary) -> Result<()> {

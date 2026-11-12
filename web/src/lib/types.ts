@@ -248,12 +248,48 @@ export interface WorkProject {
 
 export interface WorkThread {
   id: string;
-  project_id?: string;
+  project_id?: string | null;
   title?: string;
   status?: string;
   provider?: string;
   updated_at?: number;
+  /** 't3' for T3 Code's own threads (read only) */
+  source?: string;
+  preview?: string;
   [k: string]: unknown;
+}
+
+export interface WorkItem {
+  id: string;
+  kind: 'user_message' | 'assistant_message' | 'reasoning' | 'tool_call' | 'plan' | 'error' | 'system';
+  status: string;
+  title: string;
+  text: string;
+  created_at: number;
+}
+
+export interface WorkApproval {
+  id: string;
+  state: 'pending' | 'approved' | 'denied' | 'expired';
+  title: string;
+  detail: string;
+}
+
+export interface WorkThreadDetail {
+  thread: { id: string; title: string; provider: string; status: string; last_error?: string | null; project_id: string };
+  project?: WorkProject | null;
+  items: WorkItem[];
+  approvals: WorkApproval[];
+}
+
+export interface T3ThreadDetail {
+  id: string;
+  project_id: string | null;
+  title: string;
+  provider: string;
+  status: string;
+  updated_at: number;
+  messages: { role: string; text: string; created_at: number }[];
 }
 
 export interface Paired {

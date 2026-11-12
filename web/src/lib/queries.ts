@@ -57,6 +57,8 @@ export const useJournal = () =>
 export const useNoraThread = () => persisted<NoraMsg[]>('nora', () => api.get('/api/nora/thread?limit=60'));
 export const useWorkProjects = () => persisted<WorkProject[]>('work-projects', () => api.get('/api/work/projects'));
 export const useWorkThreads = () => persisted<WorkThread[]>('work-threads', () => api.get('/api/work/threads'), { refetchInterval: 60_000 });
+/** T3 Code's own threads, read only (the server reads T3's database). */
+export const useT3Threads = () => persisted<WorkThread[]>('work-t3', () => api.get('/api/work/t3/threads?limit=60'), { refetchInterval: 60_000 });
 
 export interface Heartbeat {
   id: number;

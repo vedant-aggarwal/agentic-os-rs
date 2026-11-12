@@ -1,9 +1,12 @@
-# assets/personal/ (gitignored)
+# Personal hero files (never committed)
 
-Personal 3D data for the hero lives here and is never committed. The app ships this
-folder as-is (`asset!("/assets/personal", AssetOptions::folder())`); `build.rs` creates it
-empty on a fresh clone. With the folder empty the hero still renders: a faceless
-mannequin that morphs with level, and a floating crystal for the Mind goal.
+His presets and 3D models live on the server PC in `~/.aos/personal/` (or `AOS_PERSONAL`):
+`hero3d.json`, `character/stage-01.glb` ... `stage-30.glb` and `companion.glb`. The server serves
+them to paired devices at `GET /api/personal/<path>` (device token required), and the React app
+caches them on the device (IndexedDB) so the next launch is instant. Nothing personal is bundled
+into the web build or the phone app. The Dioxus build can still read a local copy from the
+gitignored `assets/personal/` (`build.rs` creates it empty on a fresh clone). With no presets the
+hero stays on the 2D art (React) or a faceless mannequin (Dioxus).
 
 | File | What it does |
 |---|---|
