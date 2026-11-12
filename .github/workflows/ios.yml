@@ -136,6 +136,9 @@ jobs:
         if: ${{ env.CHECK != 'true' }}
         run: |
           python3 ios/signing.py export-plist
+          # signing.py writes EXPORT_PLIST to GITHUB_ENV, which only reaches later steps; read it here.
+          EXPORT_PLIST=$(grep '^EXPORT_PLIST=' "$GITHUB_ENV" | tail -1 | cut -d= -f2-)
+          [ -f "$EXPORT_PLIST" ] || { echo "no export plist"; exit 1; }
           xcodebuild -exportArchive -archivePath $RUNNER_TEMP/AgenticOS.xcarchive \
             -exportOptionsPlist "$EXPORT_PLIST" -exportPath $RUNNER_TEMP/out
           IPA=$(find $RUNNER_TEMP/out -maxdepth 1 -name "*.ipa" | head -1)
