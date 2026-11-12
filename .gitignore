@@ -11,3 +11,8 @@ seed.local.toml
 /assets/personal/*
 !/assets/personal/.gitkeep
 /hero3d-src/node_modules/
+
+# web build output and the phone shell's generated files
+/web/dist
+/web/node_modules
+/mobile/node_modules

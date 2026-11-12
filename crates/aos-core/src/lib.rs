@@ -17,6 +17,7 @@ pub mod goals;
 pub mod habits;
 pub mod ids;
 pub mod journal;
+pub mod mind;
 pub mod mission;
 pub mod model;
 pub mod mood;
@@ -28,6 +29,7 @@ pub mod sync;
 pub mod tasks;
 pub mod time;
 pub mod today;
+pub mod wave;
 pub mod xp;
 
 pub use error::{Error, Result};

@@ -60,6 +60,8 @@ pub struct NewItem {
     pub url: Option<String>,
     pub asset_id: Option<String>,
     pub goal_id: Option<String>,
+    /// A Mind OS library item to show (the card references it; nothing is copied).
+    pub mind_item_id: Option<String>,
     pub x: Option<f64>,
     pub y: Option<f64>,
     pub w: Option<f64>,
@@ -502,6 +504,10 @@ pub(crate) fn insert_item(tx: &Tx<'_>, n: &NewItem) -> Result<String> {
         tx.query_row("SELECT kind, node_id FROM board WHERE id = ?1", [&board_id], |r| Ok((r.get(0)?, r.get(1)?)))?;
     let space = "viz".to_string();
     let (ref_kind, ref_id): (&str, String) = match n.kind.as_str() {
+        _ if n.mind_item_id.is_some() => {
+            one_of("kind", &n.kind, &["image", "text", "link"])?;
+            ("mind_item", resolve(tx, "mind_item", n.mind_item_id.as_deref().unwrap_or(""))?)
+        }
         "goal" => {
             let g = n.goal_id.as_deref().ok_or_else(|| invalid("a goal card needs goal_id"))?;
             ("mc_goal", resolve(tx, "mc_goal", g)?)
@@ -629,9 +635,10 @@ const BOARD_SELECT_ONE: &str = "SELECT b.*,
 /// Card rows with what they show. `node_*` from the block (for a subpage: the nested board's
 /// page block), the dream path, and for goal cards the goal's title and status.
 const ITEM_SELECT: &str = "SELECT i.*,
-    coalesce(n.id, bn.id) AS node_id, coalesce(n.kind, 'page') AS node_kind,
-    CASE WHEN i.kind = 'goal' THEN g.title ELSE coalesce(n.text, cb.title) END AS caption,
-    coalesce(n.context, bn.context) AS context, n.url AS url, n.asset_id AS asset_id,
+    coalesce(n.id, bn.id) AS node_id, CASE WHEN m.id IS NOT NULL THEN i.kind ELSE coalesce(n.kind, 'page') END AS node_kind,
+    CASE WHEN i.kind = 'goal' THEN g.title ELSE coalesce(n.text, cb.title, m.title, substr(m.raw, 1, 200)) END AS caption,
+    coalesce(n.context, bn.context, m.description) AS context, coalesce(n.url, m.source_url) AS url,
+    coalesce(n.asset_id, m.thumb_asset_id, m.asset_id) AS asset_id, m.id AS mind_item_id,
     coalesce(n.sensitive, bn.sensitive, 0) AS node_sensitive, coalesce(n.verified_at, bn.verified_at) AS verified_at,
     d.why, d.outcome, d.obstacle, d.if_then, d.first_step, d.stage, d.closed_reason, d.last_touched_at,
     g.status AS goal_status, g.horizon AS goal_horizon, g.section AS goal_section,
@@ -644,6 +651,7 @@ const ITEM_SELECT: &str = "SELECT i.*,
   LEFT JOIN mc_node bn ON bn.id = cb.node_id
   LEFT JOIN dream d ON d.node_id = coalesce(n.id, bn.id)
   LEFT JOIN mc_goal g ON i.ref_kind = 'mc_goal' AND g.id = i.ref_id
+  LEFT JOIN mind_item m ON i.ref_kind = 'mind_item' AND m.id = i.ref_id
   WHERE i.board_id = ?1 AND i.deleted_at IS NULL
   ORDER BY i.z";
 

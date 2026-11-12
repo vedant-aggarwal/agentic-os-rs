@@ -53,6 +53,7 @@ fn Shell() -> Element {
     let _voice = crate::components::voice::use_voice_provider(state);
     let _photo = crate::components::photo::use_photo_provider(state);
     crate::native::use_native_push(_live, state);
+    crate::pages::wave::use_wave_provider(_live, state);
     use_live_toasts(state);
     use_layer_gestures(state);
     use_safe_mode_store(state, lock_param == Some(Switch::Off) && mode_param.is_none());
@@ -71,6 +72,7 @@ fn Shell() -> Element {
             UnlockLayer {}
             PairLayer {}
             crate::call::CallRoot {}
+            crate::pages::wave::WavePill {}
             Toast {}
             crate::components::voice::VoiceHost {}
         }

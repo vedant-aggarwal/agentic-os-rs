@@ -403,6 +403,33 @@ pub fn CardSheet() -> Element {
                     button { class: "mc-icon-btn", r#type: "button", aria_label: "Close", onclick: move |_| mc.card.set(None), Icon { name: IconName::X, size: 18 } }
                 }
                 if let Some(s) = src { img { class: "mc-sheet-img", src: "{s}", alt: "" } }
+                if let Some(mid) = it["mind_item_id"].as_str().map(String::from) {
+                    // A card that shows a Mind library item: its words live in the library.
+                    p { class: "mc-path-note", b { "{txt(&it, \"caption\")}" } }
+                    if !txt(&it, "context").is_empty() { p { class: "mc-path-note", "{txt(&it, \"context\")}" } }
+                    div { class: "mc-sheet-actions",
+                        button { class: "btn btn-primary", r#type: "button",
+                            onclick: move |_| {
+                                mc.card.set(None);
+                                mc.open_board.set(None);
+                                mc.seg.set(super::Seg::Mind);
+                                super::set_hash("mind");
+                                let mut m = consume_context::<super::mind::Mind>();
+                                m.open_item(mid.clone());
+                            },
+                            "Open in Mind"
+                        }
+                        button { class: "mc-ghost mc-danger", r#type: "button",
+                            onclick: move |_| {
+                                let id = mc.card.peek().clone().unwrap_or_default();
+                                if let Some(b) = mc.board.write().as_mut().and_then(|b| b["items"].as_array_mut()) { b.retain(|x| x["id"] != id.as_str()); }
+                                mc.card.set(None);
+                                mc.write("mission_board_item_remove", json!({ "id": id }));
+                            },
+                            "Take off board"
+                        }
+                    }
+                } else {
                 label { class: "mc-field",
                     span { if kind == "board" { "Title" } else { "Caption" } }
                     input { r#type: "text", value: "{txt(&it, \"caption\")}", placeholder: "Say what it is", onchange: move |e| save("caption", e.value()) }
@@ -469,6 +496,7 @@ pub fn CardSheet() -> Element {
                         },
                         "Remove card"
                     }
+                }
                 }
             }
         }

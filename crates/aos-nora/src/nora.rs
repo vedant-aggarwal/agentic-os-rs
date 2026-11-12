@@ -139,6 +139,8 @@ impl Nora {
         tokio::spawn(crate::scheduler::run(nora.clone()));
         tokio::spawn(crate::grok::watch(nora.clone()));
         tokio::spawn(crate::grok_write::run(nora.clone()));
+        // Mind OS: Claude reads saved items on a low-priority queue.
+        crate::mind::spawn(&nora);
         info!("nora started");
         Ok(nora)
     }

@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">Agentic OS</string>
+    <string name="title_activity_main">Agentic OS</string>
+    <string name="package_name">com.example.agenticos</string>
+    <string name="custom_url_scheme">com.example.agenticos</string>
+</resources>

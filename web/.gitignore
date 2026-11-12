@@ -1,0 +1,8 @@
+node_modules/
+dist/
+# copied from ../assets by scripts/sync-assets.mjs (personal/ is never committed)
+public/img/
+public/hero3d/
+public/fonts/
+public/personal/
+*.tsbuildinfo

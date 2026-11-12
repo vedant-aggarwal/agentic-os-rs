@@ -7,6 +7,8 @@ pub const AURA_CSS: Asset = asset!("/assets/aura.css");
 pub const LIVE_CSS: Asset = asset!("/assets/live.css");
 pub const CALL_CSS: Asset = asset!("/assets/call.css");
 pub const MISSION_CSS: Asset = asset!("/assets/mission.css");
+pub const WAVE_CSS: Asset = asset!("/assets/wave.css");
+pub const MIND_CSS: Asset = asset!("/assets/mind.css");
 
 /// Geist and Geist Mono (OFL) are bundled so a phone with no network on first launch
 /// renders the same face as the web build.
@@ -30,5 +32,7 @@ pub fn Head() -> Element {
         document::Stylesheet { href: LIVE_CSS }
         document::Stylesheet { href: CALL_CSS }
         document::Stylesheet { href: MISSION_CSS }
+        document::Stylesheet { href: WAVE_CSS }
+        document::Stylesheet { href: MIND_CSS }
     }
 }

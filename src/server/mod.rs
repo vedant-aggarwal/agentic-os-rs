@@ -43,10 +43,20 @@ pub fn launch(app: fn() -> Element) {
         let push = aos_push::Push::start(&config.db_path)?;
         push.watch(nora.bus().subscribe(), work.subscribe(), Some(inbox.subscribe_important()));
         let push_routes = aos_push::http::router(push, auth_store.clone());
+        // AOS_WEB_DIR set (the React build in web/dist): serve that at `/` instead of the Dioxus UI.
+        let web_dir = aos_server::web::web_dir_from_env();
         // Dioxus server functions live under /api/ and need a device token, like /api/work.
-        let ui = aos_server::auth::require_device_under(dioxus::server::router(app), auth_store, "/api/");
-        // API routes first; the Dioxus router brings assets, server functions and the SSR fallback.
-        let served = aos_server::serve_with(config, registry, move |api| api.merge(work_routes).merge(nora_routes).merge(call_routes).merge(push_routes).merge(ui)).await;
+        let ui = if web_dir.is_none() { Some(aos_server::auth::require_device_under(dioxus::server::router(app), auth_store, "/api/")) } else { None };
+        // API routes first; the Dioxus router (or the static web UI) brings assets and the page fallback.
+        let served = aos_server::serve_with(config, registry, move |api| {
+            let api = api.merge(work_routes).merge(nora_routes).merge(call_routes).merge(push_routes);
+            match (ui, web_dir) {
+                (Some(ui), _) => api.merge(ui),
+                (None, Some(dir)) => aos_server::web::with_web(api, &dir),
+                (None, None) => api,
+            }
+        })
+        .await;
         nora.stop();
         work.stop_all();
         inbox.stop();

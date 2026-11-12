@@ -25,9 +25,11 @@
 
 pub mod cli_args;
 pub mod mcp;
+pub mod mind;
 pub mod mission;
 pub mod registry;
 pub mod tools;
+pub mod wave;
 
 pub use registry::{Registry, Risk, Tool, ToolCtx, ToolError};
 
@@ -35,5 +37,7 @@ pub use registry::{Registry, Risk, Tool, ToolCtx, ToolError};
 pub fn registry() -> Registry {
     let mut all = tools::all();
     all.extend(mission::tools());
+    all.extend(wave::tools());
+    all.extend(mind::tools());
     Registry::new(all)
 }

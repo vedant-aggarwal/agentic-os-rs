@@ -1,0 +1,190 @@
+/* Wave (urge help): the sheet, the timer pill and the Growth card (src/pages/wave).
+   Calm Aura dark, one teal, slow breathing motion. Nothing here moves fast. */
+
+.wv {
+  --wv: #6fd9d2;
+  --wv-2: #9b8cff;
+  --wv-warm: #ffc24b;
+  --mood: var(--wv);
+  position: relative;
+  text-align: center;
+  isolation: isolate;
+}
+.wv .sheet-title { padding: 0 40px; }
+.wv-aura {
+  position: absolute;
+  z-index: -1;
+  left: 50%;
+  top: -60px;
+  width: 420px;
+  height: 420px;
+  margin-left: -210px;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(111, 217, 210, 0.2), rgba(155, 140, 255, 0.08) 45%, transparent 70%);
+  pointer-events: none;
+  animation: wv-aura 9s ease-in-out infinite alternate;
+}
+@keyframes wv-aura { from { transform: scale(0.88); opacity: 0.6; } to { transform: scale(1.08); opacity: 1; } }
+
+/* Top row: six dots and the time left. */
+.wv-top { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 4px 44px 10px 2px; }
+.wv-dots { display: flex; gap: 6px; }
+.wv-dot { width: 7px; height: 7px; border-radius: 50%; background: rgba(255, 255, 255, 0.16); transition: background-color var(--t-mid), transform var(--t-mid) var(--ease-out); }
+.wv-dot.past { background: color-mix(in srgb, var(--wv) 55%, transparent); }
+.wv-dot.on { background: var(--wv); transform: scale(1.35); }
+.wv-time { font-family: var(--mono); font-size: 13px; color: var(--ink-2); font-variant-numeric: tabular-nums; }
+.wv-banner {
+  width: 100%;
+  margin: 0 0 6px;
+  min-height: 44px;
+  padding: 10px 14px;
+  border-radius: 16px;
+  background: color-mix(in srgb, var(--wv-warm) 16%, #16161b);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--wv-warm) 40%, transparent);
+  color: var(--ink);
+  font-size: 14.5px;
+  font-weight: 600;
+}
+.wv-early { display: block; margin: 14px auto 0; min-height: 44px; padding: 0 16px; font-size: 13.5px; color: var(--faint); }
+
+.wv-step { text-align: left; animation: wv-in var(--t-slow) var(--ease-out) both; }
+.wv-pause, .wv-breathe, .wv-hold, .wv-end { text-align: center; }
+@keyframes wv-in { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
+.wv-step .sheet-title { padding: 0 44px 0 0; }
+.wv-pause .sheet-title, .wv-breathe .sheet-title, .wv-hold .sheet-title, .wv-end .sheet-title { padding: 0 40px; }
+.wv-praise { color: var(--wv); font-weight: 600; }
+.wv-h { margin: 20px 0 0; font-size: 13px; font-weight: 600; color: var(--muted); }
+.wv-chips { margin-top: 8px; }
+.wv .sheet-actions { margin-top: 24px; }
+.wv-range::-webkit-slider-runnable-track { background: linear-gradient(90deg, rgba(255, 255, 255, 0.1), color-mix(in srgb, var(--wv) 85%, #fff)); }
+.wv-range::-moz-range-track { background: linear-gradient(90deg, rgba(255, 255, 255, 0.1), color-mix(in srgb, var(--wv) 85%, #fff)); }
+.wv-big { margin-top: 18px; font-size: 22px; line-height: 1.3; letter-spacing: -0.015em; font-weight: 600; }
+.wv-soft { color: var(--wv); margin-top: 6px; }
+.wv-note { margin-top: 12px; font-size: 14px; color: var(--muted); }
+.wv-label { display: block; margin: 18px 0 0; font-size: 13px; font-weight: 600; color: var(--muted); text-align: left; }
+.wv-field { display: flex; gap: 8px; align-items: flex-end; margin: 8px 0 0; }
+.wv-field textarea {
+  flex: 1; min-width: 0; min-height: 44px; padding: 11px 14px; border-radius: 16px; border: 0; resize: none;
+  background: rgba(255, 255, 255, 0.05); box-shadow: inset 0 0 0 1px var(--line-2); font: inherit; font-size: 16px; color: var(--ink); outline: none;
+}
+.wv-field textarea:focus-visible { box-shadow: inset 0 0 0 1.5px var(--wv); }
+
+/* Start: one big breathing orb. */
+.wv-start .sheet-sub { max-width: 30ch; margin: 8px auto 0; }
+.wv-orb { position: relative; width: 210px; height: 210px; margin: 30px auto 6px; display: grid; place-items: center; border-radius: 50%; }
+.wv-orb-ring { position: absolute; inset: 0; border-radius: 50%; box-shadow: inset 0 0 0 1.5px rgba(111, 217, 210, 0.4); animation: wv-ring 8s ease-in-out infinite alternate; }
+.wv-orb-core {
+  position: absolute; inset: 26px; border-radius: 50%;
+  background: radial-gradient(circle at 40% 35%, rgba(170, 250, 240, 0.6), rgba(70, 200, 190, 0.2) 60%, transparent 76%);
+  animation: wv-core 8s ease-in-out infinite alternate;
+}
+.wv-orb-word { position: relative; font-size: 26px; font-weight: 650; letter-spacing: -0.02em; }
+.wv-orb-sub { position: relative; margin-top: -26px; font-size: 13px; color: var(--ink-2); transform: translateY(26px); }
+.wv-orb:active .wv-orb-core { filter: brightness(1.2); }
+@keyframes wv-core { from { transform: scale(0.82); } to { transform: scale(1.04); } }
+@keyframes wv-ring { from { transform: scale(0.97); opacity: 0.7; } to { transform: scale(1.02); opacity: 1; } }
+
+/* The curve on Pause. */
+.wv-curve { width: 100%; max-width: 320px; margin: 20px auto 0; display: block; overflow: visible; }
+.wv-curve-line { fill: none; stroke: color-mix(in srgb, var(--wv) 70%, transparent); stroke-width: 2.5; stroke-linecap: round; stroke-linejoin: round; }
+.wv-curve-dot { fill: #fff; filter: drop-shadow(0 0 8px var(--wv)); animation: wv-dot 3.4s ease-in-out infinite alternate; transform-box: fill-box; transform-origin: center; }
+@keyframes wv-dot { from { transform: scale(0.85); } to { transform: scale(1.15); } }
+
+/* Box breathing. The core grows over 4 s on "in", holds, shrinks over 4 s on "out". */
+.bx { position: relative; width: 230px; height: 230px; margin: 22px auto 0; display: grid; place-items: center; }
+.bx-ring { position: absolute; inset: 0; border-radius: 34%; box-shadow: inset 0 0 0 1.5px rgba(111, 217, 210, 0.35); }
+.bx-core {
+  position: absolute; inset: 22px; border-radius: 34%;
+  background: radial-gradient(circle at 40% 35%, rgba(170, 250, 240, 0.55), rgba(70, 200, 190, 0.18) 62%, transparent 78%);
+  transform: scale(0.72);
+  transition: transform 4s linear;
+}
+.bx[data-p="0"] .bx-core, .bx[data-p="1"] .bx-core { transform: scale(1); }
+.bx[data-p="2"] .bx-core, .bx[data-p="3"] .bx-core { transform: scale(0.6); }
+.bx[data-p="idle"] .bx-core { transition-duration: 1.2s; transform: scale(0.72); }
+.bx-word { position: relative; font-size: 20px; font-weight: 650; }
+.bx-count { position: absolute; bottom: 42px; font-family: var(--mono); font-size: 15px; color: var(--ink-2); }
+.bx-slow .bx-ring { border-radius: 50%; }
+.bx-slow .bx-core { border-radius: 50%; transition: none; animation: wv-slow 10s ease-in-out infinite; }
+.bx-clock { position: relative; font-family: var(--mono); font-size: 34px; font-weight: 500; letter-spacing: -0.02em; font-variant-numeric: tabular-nums; }
+@keyframes wv-slow { 0%, 100% { transform: scale(0.7); } 40% { transform: scale(1.06); } }
+
+/* Reset actions and outcome buttons. */
+.wv-acts, .wv-outs { display: grid; gap: 10px; margin-top: 18px; }
+.wv-act, .wv-out {
+  display: flex; flex-direction: column; gap: 3px; width: 100%; min-height: 64px; padding: 13px 16px; border-radius: 20px; text-align: left;
+  background: rgba(255, 255, 255, 0.06); box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.07);
+  transition: background-color var(--t-fast), transform var(--t-fast) var(--ease-out);
+}
+.wv-act:active, .wv-out:active { transform: scale(0.985); }
+.wv-act.on { background: color-mix(in srgb, var(--wv) 20%, #16161b); box-shadow: inset 0 0 0 1.5px var(--wv); }
+.wv-out-good { background: color-mix(in srgb, var(--wv) 16%, #16161b); box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--wv) 45%, transparent); }
+.wv-act-t { font-size: 16.5px; font-weight: 600; color: var(--ink); }
+.wv-act-h { font-size: 13.5px; color: var(--muted); }
+
+/* End screens. */
+.wv-seal { width: 84px; height: 84px; margin: 14px auto 12px; border-radius: 50%; background: radial-gradient(circle at 40% 35%, rgba(170, 250, 240, 0.7), rgba(70, 200, 190, 0.2) 62%, transparent 76%); animation: wv-core 6s ease-in-out infinite alternate; }
+.wv-end .sheet-sub { max-width: 34ch; margin-left: auto; margin-right: auto; }
+.wv-end .wv-outs { text-align: left; }
+.wv-facts { margin: 16px 0 0; padding: 0; list-style: none; display: grid; gap: 10px; text-align: left; counter-reset: f; }
+.wv-facts li { position: relative; padding: 12px 14px 12px 44px; border-radius: 18px; background: rgba(255, 255, 255, 0.05); font-size: 15.5px; line-height: 1.4; color: var(--ink); counter-increment: f; }
+.wv-facts li::before { content: counter(f); position: absolute; left: 14px; top: 12px; width: 22px; height: 22px; border-radius: 50%; display: grid; place-items: center; font-size: 12px; font-weight: 700; color: #08080b; background: var(--wv); }
+
+/* The timer pill: under the top bar, on every page, while a wave runs. */
+.wave-pill {
+  position: fixed;
+  z-index: 71;
+  top: calc(var(--sat) + 58px);
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex; align-items: center; gap: 8px;
+  min-height: 34px; padding: 0 14px 0 11px; border-radius: 999px;
+  background: rgba(10, 10, 14, 0.88);
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.45), inset 0 0 0 1px rgba(111, 217, 210, 0.35);
+  -webkit-backdrop-filter: blur(16px); backdrop-filter: blur(16px);
+  color: var(--ink);
+  animation: wp-in var(--t-mid) var(--ease-out) both;
+}
+.wave-pill::before { content: ""; position: absolute; inset: -6px -4px; }
+.wp-dot { width: 10px; height: 10px; border-radius: 50%; background: #6fd9d2; box-shadow: 0 0 10px #6fd9d2; animation: wp-breath 6s ease-in-out infinite; }
+.wp-time { font-family: var(--mono); font-size: 13.5px; font-variant-numeric: tabular-nums; }
+.wave-pill.is-done { box-shadow: 0 10px 30px rgba(0, 0, 0, 0.45), inset 0 0 0 1px rgba(255, 194, 75, 0.6); }
+.wave-pill.is-done .wp-dot { background: #ffc24b; box-shadow: 0 0 10px #ffc24b; }
+@keyframes wp-in { from { opacity: 0; transform: translateX(-50%) scale(0.85); } to { opacity: 1; transform: translateX(-50%); } }
+@keyframes wp-breath { 0%, 100% { transform: scale(0.75); opacity: 0.7; } 50% { transform: scale(1.1); opacity: 1; } }
+.is-safe .wave-pill, .is-safe .sc-wave, .is-safe .wv-stats { display: none; }
+
+/* Growth card. */
+.wv-stats { margin-top: 4px; }
+.wv-empty { padding: 14px 16px; border-radius: 20px; background: rgba(255, 255, 255, 0.04); font-size: 14px; color: var(--muted); }
+.wv-pair { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; padding: 14px 16px; border-radius: 22px; background: linear-gradient(180deg, var(--card), #15151a); box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.07); }
+.wv-num { display: flex; flex-direction: column; gap: 2px; }
+.wv-n { font-size: 30px; font-weight: 650; letter-spacing: -0.02em; font-variant-numeric: tabular-nums; }
+.wv-num-good .wv-n { color: #6fd9d2; }
+.wv-l { font-size: 12.5px; color: var(--muted); }
+.wv-line { margin: 10px 2px 0; font-size: 13.5px; color: var(--muted); }
+.wv-hours { display: flex; gap: 3px; align-items: flex-end; height: 92px; margin: 14px 0 0; padding: 12px 12px 4px; border-radius: 20px; background: rgba(255, 255, 255, 0.04); }
+.wv-hr { flex: 1; min-width: 0; height: 100%; display: flex; flex-direction: column; align-items: center; justify-content: flex-end; gap: 4px; position: relative; }
+.wv-bar { position: relative; width: 100%; flex: 1; display: flex; align-items: flex-end; border-radius: 3px; background: rgba(255, 255, 255, 0.05); overflow: hidden; }
+.wv-bar-o, .wv-bar-b { position: absolute; left: 0; right: 0; bottom: 0; min-height: 0; }
+.wv-bar-o { background: #ffc24b; opacity: 0.85; }
+.wv-bar-b { background: #6fd9d2; }
+.wv-hl { position: absolute; bottom: -2px; font-size: 10px; color: var(--faint); transform: translateY(100%); display: none; }
+.wv-hours { padding-bottom: 20px; }
+.wv-hr:nth-child(6n + 1) .wv-hl { display: block; }
+.wv-trig { margin-top: 10px; display: grid; gap: 2px; }
+.wv-trow { display: flex; justify-content: space-between; gap: 12px; padding: 10px 4px; border-bottom: 1px solid var(--line); font-size: 14px; }
+.wv-tn { font-weight: 600; color: var(--ink); }
+.wv-tc { color: var(--muted); font-size: 13px; text-align: right; }
+.wv-guard { margin-top: 14px; padding: 12px 14px; border-radius: 20px; background: rgba(255, 255, 255, 0.04); }
+.wv-toggle { display: flex; gap: 12px; align-items: center; min-height: 44px; cursor: pointer; }
+.wv-toggle input { width: 22px; height: 22px; accent-color: #6fd9d2; flex: none; }
+.wv-toggle-t { display: flex; flex-direction: column; gap: 2px; text-align: left; }
+.wv-toggle-t .wv-tc { text-align: left; }
+.wv-at { display: flex; align-items: center; justify-content: space-between; min-height: 44px; margin-top: 4px; font-size: 14px; color: var(--ink-2); }
+.wv-at input { min-height: 40px; padding: 0 12px; border-radius: 14px; border: 0; background: rgba(255, 255, 255, 0.07); color: var(--ink); font: inherit; font-size: 15px; color-scheme: dark; }
+
+@media (prefers-reduced-motion: reduce) {
+  .wv-aura, .wv-orb-ring, .wv-orb-core, .wv-seal, .wv-curve-dot, .wp-dot, .bx-slow .bx-core, .wv-step, .wave-pill { animation: none; }
+  .bx-core { transition: none; }
+}

@@ -14,6 +14,7 @@
 //! | `POST /mcp` | yes | MCP over streamable HTTP (JSON responses) |
 //! | `/api/voice/*` | yes | chunked audio upload and transcription (see `voice.rs`) |
 //! | `/api/media*` | yes | board images: upload, fetch from a link, serve (see `media.rs`) |
+//! | `POST /api/mind/save` | yes | save to the Mind library from a share sheet (see `mind.rs`) |
 
 use std::convert::Infallible;
 use std::time::Duration;
@@ -62,6 +63,7 @@ pub fn api_router(state: AppState) -> Router {
         .layer(RequestBodyLimitLayer::new(2 * 1024 * 1024))
         // Images carry their own 12 MB limit, so they join after the 2 MB layer.
         .merge(crate::media::routes())
+        .merge(crate::mind::routes())
         .layer(TraceLayer::new_for_http())
         .layer(CatchPanicLayer::new())
         .with_state(state)

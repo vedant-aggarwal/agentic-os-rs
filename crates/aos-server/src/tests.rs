@@ -296,3 +296,21 @@ async fn board_images_upload_and_serve() {
     assert_eq!(code, StatusCode::UNAUTHORIZED);
     let _ = std::fs::remove_dir_all(dir);
 }
+
+#[tokio::test]
+async fn mind_save_from_a_share_sheet() {
+    let s = state();
+    let t = token(&s);
+    let (code, row) = send(&s, "POST", "/api/mind/save", Some(&t), json!({ "text": "A thought from the phone [[Later]]" })).await;
+    assert_eq!(code, StatusCode::OK, "{row}");
+    assert_eq!(row["kind"], "note");
+    assert_eq!(row["origin"], "share");
+    assert_eq!(row["links"][0]["to_title"], "Later");
+    let (code, row) = send(&s, "POST", "/api/mind/save", Some(&t), json!({ "url": "https://example.com/reel", "kind": "video" })).await;
+    assert_eq!(code, StatusCode::OK, "{row}");
+    assert_eq!(row["jobs"][0]["stage"], "fetch");
+    let (code, _) = send(&s, "POST", "/api/mind/save", None, json!({ "text": "x" })).await;
+    assert_eq!(code, StatusCode::UNAUTHORIZED);
+    let (code, _) = send(&s, "POST", "/api/mind/save", Some(&t), json!({})).await;
+    assert_eq!(code, StatusCode::BAD_REQUEST);
+}

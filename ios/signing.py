@@ -1,4 +1,7 @@
-"""App Store signing for the Dioxus iOS build on a CI Mac, through the App Store Connect API.
+"""App Store signing for the iOS builds on a CI Mac, through the App Store Connect API.
+
+Two builds use it: the Dioxus app (one target) and the Capacitor phone shell in mobile/ (TARGETS=capacitor: the app
+plus its widget, share, keyboard and, with FAMILY_CONTROLS=true, the three Screen Time extensions).
 
 An App Manager API key can't use Apple's cloud signing, so each run makes its own short-lived
 Apple Distribution certificate and App Store profile, and removes both at the end. Builds already
@@ -6,10 +9,15 @@ uploaded stay valid.
 
   next-build   BUILD_NUMBER = highest build number of the app in App Store Connect + 1
   setup        certificate + App Store profile in a temporary keychain; writes SIGN_IDENTITY,
-               PROFILE_PATH and ENTITLEMENTS to GITHUB_ENV
-  cleanup      delete the profile and revoke the certificate made by setup
+               PROFILE_PATH and ENTITLEMENTS to GITHUB_ENV. With TARGETS=capacitor it registers every
+               extension's bundle ID, turns on its capabilities, makes one profile per target and writes
+               PROFILE_APP, PROFILE_WIDGETS, PROFILE_SHARE, PROFILE_KEYBOARD (+ Screen Time) instead.
+  entitlements after ios/add_targets.rb (capacitor): each target's .entitlements cut to what its profile grants
+  export-plist the exportOptions plist for xcodebuild -exportArchive (capacitor), path in EXPORT_PLIST
+  cleanup      delete the profiles and revoke the certificate made by setup
 
-Env: ASC_KEY_ID, ASC_ISSUER_ID, ASC_KEY_PATH, BUNDLE_ID, APPLE_TEAM_ID, RUNNER_TEMP, GITHUB_ENV.
+Env: ASC_KEY_ID, ASC_ISSUER_ID, ASC_KEY_PATH, BUNDLE_ID, APPLE_TEAM_ID, RUNNER_TEMP, GITHUB_ENV, TARGETS,
+FAMILY_CONTROLS.
 Nothing here prints a key, a certificate or an email.
 """
 import base64, json, os, plistlib, re, subprocess, sys, time, urllib.error, urllib.request, uuid
@@ -126,6 +134,11 @@ def setup():
         raise SystemExit("The new certificate is not an Apple Distribution identity.")
     os.remove(key)
 
+    if os.environ.get("TARGETS", "").lower() == "capacitor":
+        setup_targets(bundle, cert["id"], state)
+        env_out(SIGN_IDENTITY=m.group(1), SIGN_KEYCHAIN=kc)
+        return
+
     bundles = call("GET", f"/bundleIds?filter[identifier]={bundle}&limit=200")["data"]
     match = [b for b in bundles if b["attributes"]["identifier"] == bundle]
     if not match:
@@ -198,11 +211,151 @@ def ensure_capabilities(bundle_id_resource):
             print(f"Could not enable {cap}: {str(e)[:200]}")
 
 
+# --- Capacitor shell: one profile per target -------------------------------------------------------------
+
+# Where each target's entitlements live under mobile/ios/App (ios/add_targets.rb uses the same names).
+TARGET_ENTITLEMENTS = {"APP": "App/App.entitlements", "WIDGETS": "AgenticWidgets/AgenticWidgets.entitlements",
+                       "SHARE": "AgenticShare/AgenticShare.entitlements",
+                       "KEYBOARD": "AgenticKeyboard/AgenticKeyboard.entitlements",
+                       "MONITOR": "AgenticMonitor/AgenticMonitor.entitlements",
+                       "SHIELD": "AgenticShield/AgenticShield.entitlements",
+                       "SHIELDACTION": "AgenticShieldAction/AgenticShieldAction.entitlements"}
+SHELL_IOS = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "mobile", "ios", "App")
+
+
+def shell_targets(bundle):
+    """(env key, bundle id, name, capabilities) for the app and its extensions. A capability is a list of App Store
+    Connect names tried in order; a leading "?" makes it optional (refused: the run goes on and the entitlements
+    step drops it). The shared keychain group needs no capability: App Store profiles allow TEAMID.*."""
+    family = os.environ.get("FAMILY_CONTROLS", "").lower() == "true"
+    app_caps = [["PUSH_NOTIFICATIONS"], ["?HEALTHKIT"],
+                ["?USERNOTIFICATIONS_TIMESENSITIVE", "?TIME_SENSITIVE_NOTIFICATIONS"]]
+    if family:
+        app_caps.append(["?FAMILY_CONTROLS"])
+    out = [("APP", bundle, "Agentic OS", app_caps),
+           ("WIDGETS", f"{bundle}.widgets", "Agentic OS Widgets", []),
+           ("SHARE", f"{bundle}.share", "Agentic OS Share", []),
+           ("KEYBOARD", f"{bundle}.keyboard", "Agentic OS Keyboard", [])]
+    if family:
+        out += [("MONITOR", f"{bundle}.monitor", "Agentic OS Screen Time Monitor", [["?FAMILY_CONTROLS"]]),
+                ("SHIELD", f"{bundle}.shield", "Agentic OS Shield", [["?FAMILY_CONTROLS"]]),
+                ("SHIELDACTION", f"{bundle}.shieldaction", "Agentic OS Shield Action", [["?FAMILY_CONTROLS"]])]
+    return out
+
+
+def ensure_bundle(ident, label):
+    ids = call("GET", f"/bundleIds?filter[identifier]={ident}&limit=200")["data"]
+    match = [b for b in ids if b["attributes"]["identifier"] == ident]
+    if match:
+        return match[0]["id"]
+    made = call("POST", "/bundleIds", {"data": {"type": "bundleIds",
+        "attributes": {"identifier": ident, "name": label, "platform": "IOS"}}})["data"]
+    print(f"Registered bundle ID for {label}")
+    return made["id"]
+
+
+def ensure_capability(pk, names):
+    """Turns on the first of names the API accepts. Optional names ("?X") warn instead of failing the run."""
+    have = {c["attributes"]["capabilityType"] for c in call("GET", f"/bundleIds/{pk}/bundleIdCapabilities")["data"]}
+    if have.intersection(n.lstrip("?") for n in names):
+        return True
+    for raw in names:
+        cap = raw.lstrip("?")
+        try:
+            call("POST", "/bundleIdCapabilities", {"data": {"type": "bundleIdCapabilities",
+                 "attributes": {"capabilityType": cap},
+                 "relationships": {"bundleId": {"data": {"type": "bundleIds", "id": pk}}}}})
+            print(f"Turned on {cap}")
+            return True
+        except SystemExit as e:
+            if not raw.startswith("?"):
+                raise
+            print(f"Could not turn on {cap} (left out of this build): {str(e)[:300]}")
+    return False
+
+
+def profile_keys(path):
+    raw = subprocess.run(["security", "cms", "-D", "-i", path], check=True, capture_output=True).stdout
+    return sorted(plistlib.loads(raw).get("Entitlements", {}).keys())
+
+
+def setup_targets(bundle, cert_id, state):
+    stamp = int(time.time())
+    state["profiles"], state["granted"], names = [], {}, {}
+    dirs = [os.path.expanduser(d) for d in ("~/Library/Developer/Xcode/UserData/Provisioning Profiles",
+                                             "~/Library/MobileDevice/Provisioning Profiles")]
+    for d in dirs:
+        os.makedirs(d, exist_ok=True)
+    env = {}
+    for key, ident, label, caps in shell_targets(bundle):
+        pk = ensure_bundle(ident, label)
+        for cap in caps:
+            ensure_capability(pk, cap)
+        name = f"{label} CI {stamp}"
+        prof = call("POST", "/profiles", {"data": {"type": "profiles",
+            "attributes": {"name": name, "profileType": "IOS_APP_STORE"},
+            "relationships": {"bundleId": {"data": {"type": "bundleIds", "id": pk}},
+                              "certificates": {"data": [{"type": "certificates", "id": cert_id}]}}}})["data"]
+        state["profiles"].append(prof["id"])
+        json.dump(state, open(STATE, "w"))
+        content = base64.b64decode(prof["attributes"]["profileContent"])
+        for d in dirs:
+            open(os.path.join(d, f"{prof['attributes']['uuid']}.mobileprovision"), "wb").write(content)
+        path = os.path.join(dirs[0], f"{prof['attributes']['uuid']}.mobileprovision")
+        state["granted"][key] = profile_keys(path)
+        names[ident] = name
+        json.dump(state, open(STATE, "w"))
+        env[f"PROFILE_{key}"] = name
+        print(f"Profile for {key}: grants {', '.join(state['granted'][key])}")
+    state["names"] = names
+    json.dump(state, open(STATE, "w"))
+    env_out(**env)
+    print(f"Signing ready: certificate {cert_id}, {len(state['profiles'])} profiles")
+
+
+def entitlements():
+    """After ios/add_targets.rb: each target's entitlements, cut to what its profile grants, so a capability Apple
+    has not approved (Family Controls before the request is granted, HealthKit) never breaks signing."""
+    if not os.path.exists(STATE):
+        print("No signing state: entitlements left as they are.")
+        return
+    state = json.load(open(STATE))
+    for key, allowed in state.get("granted", {}).items():
+        path = os.path.join(SHELL_IOS, TARGET_ENTITLEMENTS[key])
+        if not os.path.exists(path):
+            continue
+        with open(path, "rb") as f:
+            requested = plistlib.load(f)
+        allowed = set(allowed)
+        kept = {k: v for k, v in requested.items()
+                if k in allowed or (k == "com.apple.developer.healthkit.access" and "com.apple.developer.healthkit" in allowed)}
+        dropped = sorted(set(requested) - set(kept))
+        with open(path, "wb") as f:
+            plistlib.dump(kept, f)
+        print(f"{key}: keeps {', '.join(sorted(kept)) or 'nothing'}" + (f"; drops {', '.join(dropped)}" if dropped else ""))
+
+
+def export_plist():
+    """exportOptions for xcodebuild -exportArchive: app-store-connect, manual signing, every target's profile."""
+    state = json.load(open(STATE))
+    opts = {"method": "app-store-connect", "destination": "export", "teamID": os.environ["APPLE_TEAM_ID"],
+            "signingStyle": "manual", "signingCertificate": "Apple Distribution",
+            "provisioningProfiles": state["names"], "uploadSymbols": False,
+            "manageAppVersionAndBuildNumber": False}
+    path = os.path.join(TMP, "export.plist")
+    with open(path, "wb") as f:
+        plistlib.dump(opts, f)
+    print(f"Export options: {len(state['names'])} profiles")
+    env_out(EXPORT_PLIST=path)
+
+
 def cleanup():
     if not os.path.exists(STATE):
         return
     state = json.load(open(STATE))
-    for kind, ident in (("profiles", state.get("profile")), ("certificates", state.get("certificate"))):
+    gone = [("profiles", p) for p in state.get("profiles", [])]
+    gone += [("profiles", state.get("profile")), ("certificates", state.get("certificate"))]
+    for kind, ident in gone:
         if not ident:
             continue
         try:
@@ -253,4 +406,5 @@ def wait_processing():
 
 if __name__ == "__main__":
     {"next-build": next_build, "setup": setup, "cleanup": cleanup, "status": status,
-     "wait-processing": wait_processing}[sys.argv[1]]()
+     "wait-processing": wait_processing, "entitlements": entitlements,
+     "export-plist": export_plist}[sys.argv[1]]()

@@ -1,10 +1,17 @@
-# Builds the Dioxus iOS app on a GitHub macOS runner and uploads it to App Store Connect (TestFlight).
+# Builds the iOS app on a GitHub macOS runner and uploads it to App Store Connect (TestFlight).
 # Runs on every push to main, or by hand: gh workflow run ios.yml -f upload=true
+#
+# Two builders. "capacitor" (default) is the phone shell in mobile/: the React web build (web/) wrapped in Capacitor
+# with the native targets (widgets and Live Activities, share sheet, keyboard; Screen Time with family_controls).
+# "dx" is the earlier Dioxus build, kept behind this manual switch until the Capacitor build is proven:
+#   gh workflow run ios.yml -f builder=dx
+# check=true compiles the Capacitor project without signing or uploading (nothing is made in the account).
 #
 # Repo secrets: APPLE_TEAM_ID, ASC_KEY_ID, ASC_ISSUER_ID, ASC_KEY_P8 (contents of the .p8 key), BUNDLE_ID.
 # Signing goes through the App Store Connect API (ios/signing.py): a short-lived distribution certificate and
-# App Store profile per run, removed at the end. The build number is the app's highest build number + 1.
-# This repo is public, so its logs are public: secrets only pass through env, and no IPA is kept as an artifact.
+# App Store profiles per run (one per target for the shell), removed at the end. The build number is the app's
+# highest build number + 1. This repo is public, so its logs are public: secrets only pass through env, and no IPA
+# is kept as an artifact.
 name: iOS TestFlight
 on:
   push:
@@ -12,10 +19,23 @@ on:
     paths-ignore: ['**.md', 'LICENSE']
   workflow_dispatch:
     inputs:
+      builder:
+        description: What to build
+        type: choice
+        options: [capacitor, dx]
+        default: capacitor
       upload:
         description: Upload to App Store Connect
         type: boolean
         default: true
+      check:
+        description: Capacitor only - compile without signing or upload
+        type: boolean
+        default: false
+      family_controls:
+        description: Capacitor only - Screen Time extensions (needs the Family Controls entitlement from Apple)
+        type: boolean
+        default: false
 concurrency:
   group: ios-testflight
   cancel-in-progress: false
@@ -26,7 +46,120 @@ env:
   CARGO_TARGET_DIR: ${{ github.workspace }}/target
   CARGO_TERM_COLOR: never
 jobs:
+  shell:
+    if: ${{ github.event_name == 'push' || inputs.builder == 'capacitor' }}
+    runs-on: macos-26
+    timeout-minutes: 60
+    env:
+      BUNDLE_ID: ${{ secrets.BUNDLE_ID }}
+      APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+      ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
+      ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
+      TARGETS: capacitor
+      FAMILY_CONTROLS: ${{ inputs.family_controls && 'true' || 'false' }}
+      CHECK: ${{ inputs.check && 'true' || 'false' }}
+      UPLOAD: ${{ github.event_name == 'push' || (inputs.upload && !inputs.check) }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Xcode 26 or newer
+        run: |
+          major() { xcodebuild -version | head -1 | awk '{print $2}' | cut -d. -f1; }
+          if [ "$(major)" -lt 26 ]; then
+            pick=$(ls -d /Applications/Xcode_26*.app 2>/dev/null | sort -V | tail -1)
+            [ -n "$pick" ] || { echo "No Xcode 26 on this runner"; exit 1; }
+            sudo xcode-select -s "$pick/Contents/Developer"
+          fi
+          xcodebuild -version
+          xcrun --sdk iphoneos --show-sdk-version
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: mobile/package-lock.json
+      - name: Web build (web/ -> web/dist)
+        run: |
+          if [ -f web/package.json ]; then
+            cd web
+            if [ -f package-lock.json ]; then npm ci --no-audit --no-fund; else npm install --no-audit --no-fund; fi
+            npm run build
+          else
+            echo "No web/ app yet: the shell ships the placeholder page"
+          fi
+      - name: Capacitor sync
+        working-directory: mobile
+        run: |
+          npm ci --no-audit --no-fund
+          node scripts/ensure-web.mjs
+          npx cap sync ios
+      - name: App Store Connect key
+        if: ${{ env.CHECK != 'true' }}
+        env:
+          ASC_KEY_P8: ${{ secrets.ASC_KEY_P8 }}
+        run: |
+          mkdir -p ~/.appstoreconnect/private_keys
+          printf '%s\n' "$ASC_KEY_P8" > ~/.appstoreconnect/private_keys/AuthKey_$ASC_KEY_ID.p8
+          echo "ASC_KEY_PATH=$HOME/.appstoreconnect/private_keys/AuthKey_$ASC_KEY_ID.p8" >> $GITHUB_ENV
+          python3 -m pip install --quiet --break-system-packages pyjwt cryptography
+      - name: Build number
+        if: ${{ env.CHECK != 'true' }}
+        run: python3 ios/signing.py next-build
+      - name: Signing certificate and profiles (every target)
+        if: ${{ env.CHECK != 'true' }}
+        run: python3 ios/signing.py setup
+      - name: Extensions, native files and per-target signing
+        env:
+          TEAM: ${{ secrets.APPLE_TEAM_ID }}
+        run: |
+          gem list -i xcodeproj >/dev/null || sudo gem install xcodeproj --no-document
+          ruby ios/add_targets.rb
+      - name: Entitlements the profiles grant
+        if: ${{ env.CHECK != 'true' }}
+        run: python3 ios/signing.py entitlements
+      - name: Compile check
+        if: ${{ env.CHECK == 'true' }}
+        run: |
+          xcodebuild -project mobile/ios/App/App.xcodeproj -scheme App -configuration Release \
+            -destination 'generic/platform=iOS' CODE_SIGNING_ALLOWED=NO build > $RUNNER_TEMP/build.log 2>&1 && ok=0 || ok=$?
+          grep -E "error:|BUILD (SUCCEEDED|FAILED)" $RUNNER_TEMP/build.log | sort -u | head -200 || true
+          exit $ok
+      - name: Archive
+        if: ${{ env.CHECK != 'true' }}
+        run: |
+          xcodebuild -project mobile/ios/App/App.xcodeproj -scheme App -configuration Release \
+            -destination 'generic/platform=iOS' -archivePath $RUNNER_TEMP/AgenticOS.xcarchive \
+            MARKETING_VERSION=$MARKETING_VERSION CURRENT_PROJECT_VERSION=$BUILD_NUMBER \
+            OTHER_CODE_SIGN_FLAGS="--keychain $SIGN_KEYCHAIN" \
+            archive > $RUNNER_TEMP/archive.log 2>&1 && ok=0 || ok=$?
+          grep -E "error:|ARCHIVE (SUCCEEDED|FAILED)" $RUNNER_TEMP/archive.log | sort -u | head -200 || true
+          exit $ok
+      - name: Export (app-store-connect, every target's profile)
+        if: ${{ env.CHECK != 'true' }}
+        run: |
+          python3 ios/signing.py export-plist
+          xcodebuild -exportArchive -archivePath $RUNNER_TEMP/AgenticOS.xcarchive \
+            -exportOptionsPlist "$EXPORT_PLIST" -exportPath $RUNNER_TEMP/out
+          IPA=$(find $RUNNER_TEMP/out -maxdepth 1 -name "*.ipa" | head -1)
+          [ -n "$IPA" ] || { ls -la $RUNNER_TEMP/out; echo "xcodebuild exported no IPA"; exit 1; }
+          echo "IPA=$IPA" >> $GITHUB_ENV
+      - name: Check the IPA
+        if: ${{ env.CHECK != 'true' }}
+        run: bash ios/check-ipa.sh "$IPA"
+      - name: Upload to App Store Connect
+        if: ${{ env.CHECK != 'true' && env.UPLOAD == 'true' }}
+        run: |
+          xcrun altool --upload-app -f "$IPA" -t ios --apiKey "$ASC_KEY_ID" --apiIssuer "$ASC_ISSUER_ID"
+          echo "Uploaded build $BUILD_NUMBER ($MARKETING_VERSION)"
+      # Apple checks the signature after the upload; the certificate stays alive until it has.
+      - name: Apple processing
+        if: ${{ env.CHECK != 'true' && env.UPLOAD == 'true' }}
+        run: python3 ios/signing.py wait-processing
+      - name: Remove the run's certificate and profiles
+        if: ${{ always() && env.CHECK != 'true' }}
+        run: python3 ios/signing.py cleanup || true
+
+  # The Dioxus build, unchanged. Only by hand: gh workflow run ios.yml -f builder=dx
   ios:
+    if: ${{ github.event_name == 'workflow_dispatch' && inputs.builder == 'dx' }}
     runs-on: macos-26
     timeout-minutes: 60
     env:

@@ -665,7 +665,7 @@ impl Calls {
         let mins = (seconds / 60).max(1);
         let req = TurnRequest {
             system: format!("{}\nYou are writing up a voice call that just ended. Reply with one JSON object only.", prompt::system_prompt(&owner)),
-            prompt: writeup_prompt(&owner, kind, mins, &prompt::clip(&lines, 24_000), &handoffs) + crate::mission::writeup_extra(kind == CallKind::CloseDay),
+            prompt: writeup_prompt(&owner, kind, mins, &prompt::clip(&lines, 24_000), &handoffs) + crate::mission::writeup_extra(kind == CallKind::CloseDay) + crate::wave::writeup_extra(kind == CallKind::CloseDay),
             model: self.0.cfg.model.clone(),
             mcp_config: nora.mcp_config(),
             deny_tools: vec!["nora_send".into(), "call_request".into()],
@@ -898,6 +898,7 @@ Your answer is spoken to him exactly as you write it. Match his language (Hingli
 - Skip the short opening line you'd write in chat. Go straight to the tools, then the answer.
 - A tool that fails: say what didn't work in one sentence. Never say something is done unless a tool did it.
 - Never state a plan, task, time, number or result unless a tool returned it.
+- \"Save this\", \"remember this\" or a link he wants kept: `mind_save` with his words as he said them; to recall something he saved, `mind_search`.
 - Anything that messages other people, spends money or deletes data: say what you would do and ask for his yes. The voice will relay it."
     )
 }
@@ -916,8 +917,10 @@ fn opener_line(owner: &str, kind: CallKind, hour: u32) -> String {
 
 pub fn voice_persona(owner: &str, kind: CallKind, reason: &str, context: &str) -> String {
     let why = match (kind, reason.trim()) {
-        (CallKind::CloseDay, _) => format!("{CLOSE_DAY_SCRIPT}\n{}", crate::mission::CLOSE_DAY_STEP),
+        (CallKind::CloseDay, _) => format!("{CLOSE_DAY_SCRIPT}\n{}\n{}", crate::mission::CLOSE_DAY_STEP, crate::wave::CLOSE_DAY_STEP),
         (_, "") => format!("{owner} rang you."),
+        (_, r) if r.starts_with("Wave") => format!("Why this call: {r}
+{}", crate::wave::CALL_RULE),
         (_, r) => format!("Why this call: {r}"),
     };
     let p = format!(
@@ -1029,6 +1032,7 @@ pub fn call_context(nora: &Nora, max: usize) -> String {
         out.push(format!("XP this week: {}.", x.week));
     }
     out.push(crate::mission::context(core, 1800));
+    out.push(crate::wave::context(core, 1500));
     out.push(format!("Orb (his state): {}", orb_state(nora).summary()));
     // Last call write-ups.
     if let Ok(mut s) = nora.db().conn().prepare("SELECT started_at, kind, summary, actions FROM nora_voice_call WHERE summary != '' ORDER BY started_at DESC LIMIT 3") {

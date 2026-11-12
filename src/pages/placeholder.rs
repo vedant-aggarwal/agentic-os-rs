@@ -291,6 +291,7 @@ pub fn MissionGrowth() -> Element {
                     }
                 }
             }
+            if !safe { crate::pages::wave::WaveStats {} }
             h2 { class: "pg-h", "Journal" }
             div { class: "ms-compose",
                 textarea {

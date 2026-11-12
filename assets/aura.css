@@ -1344,21 +1344,6 @@ img { display: block; max-width: 100%; user-select: none; -webkit-user-drag: non
 .call-btn.on .call-ico { background: var(--ink); color: #08080b; }
 .call-end .call-ico { background: linear-gradient(180deg, #ff7a63, #f2453a); color: #fff; }
 
-/* Wave */
-.wave { text-align: center; }
-.wave .sheet-title { padding: 0 40px; }
-.breath { position: relative; width: 190px; height: 190px; margin: 22px auto 4px; display: grid; place-items: center; }
-.breath-ring { position: absolute; inset: 0; border-radius: 50%; box-shadow: inset 0 0 0 1.5px rgba(111, 217, 210, 0.35); }
-.breath-core {
-  position: absolute;
-  inset: 34px;
-  border-radius: 50%;
-  background: radial-gradient(circle at 40% 35%, rgba(170, 250, 240, 0.55), rgba(70, 200, 190, 0.18) 60%, transparent 75%);
-  transform: scale(0.7);
-}
-.wave.running .breath-core { animation: breath 10s ease-in-out infinite; }
-.breath-word { position: relative; font-size: 18px; font-weight: 600; }
-
 /* Capture */
 .cap-field {
   width: 100%;
@@ -1662,7 +1647,6 @@ img { display: block; max-width: 100%; user-select: none; -webkit-user-drag: non
 @keyframes due { 0% { transform: scale(1); opacity: 0.8; } 70%, 100% { transform: scale(1.55); opacity: 0; } }
 @keyframes xp-float { 0% { transform: translateY(6px); opacity: 0; } 20% { opacity: 1; } 100% { transform: translateY(-22px); opacity: 0; } }
 @keyframes halo { from { transform: scale(0.94); } to { transform: scale(1.04); } }
-@keyframes breath { 0%, 100% { transform: scale(0.7); } 40% { transform: scale(1.12); } }
 @keyframes bars { from { transform: scaleY(0.3); } to { transform: scaleY(1); } }
 @keyframes fi-breathe { from { transform: scale(1); } to { transform: scale(0.94); } }
 @keyframes fi-scan { 0% { transform: scale(0.94); } 60% { transform: scale(0.84); } 100% { transform: scale(1); } }

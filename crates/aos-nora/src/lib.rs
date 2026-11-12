@@ -25,6 +25,7 @@ pub mod grok_write;
 pub mod heartbeat;
 pub mod http;
 pub mod memory;
+pub mod mind;
 pub mod mission;
 pub mod morning;
 pub mod nora;
@@ -33,6 +34,7 @@ pub mod realtime;
 pub mod scheduler;
 pub mod store;
 pub mod tools;
+pub mod wave;
 
 pub use events::NoraEvent;
 pub use nora::{EngineChoice, Nora, NoraConfig, Settings};

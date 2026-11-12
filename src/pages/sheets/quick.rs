@@ -1,4 +1,4 @@
-//! The shortcut sheets: Call Nora, Wave, Capture, Print plan, Launch work.
+//! The shortcut sheets: Call Nora, Capture, Print plan, Launch work (Wave has its own module).
 //! Each is the real screen with the back end stubbed; nothing claims to have happened.
 
 use dioxus::prelude::*;
@@ -66,53 +66,15 @@ pub fn CallSheet() -> Element {
     }
 }
 
-/// Ten minutes with an urge. The circle breathes: in for four, out for six.
-#[component]
-pub fn WaveSheet() -> Element {
-    let mut state = use_context::<AppState>();
-    let mut running = use_signal(|| false);
-    rsx! {
-        div { class: "sheet-body wave", class: if running() { "running" },
-            h2 { class: "sheet-title", "Wave" }
-            p { class: "sheet-sub",
-                if running() {
-                    "This is a wave, not an order. It rises, peaks and passes. Breathe with the circle."
-                } else {
-                    "Ten minutes. Notice it, breathe, let it pass. Every step can be skipped."
-                }
-            }
-            div { class: "breath", aria_hidden: "true",
-                span { class: "breath-ring" }
-                span { class: "breath-core" }
-                span { class: "breath-word", if running() { "Breathe" } else { "10 min" } }
-            }
-            div { class: "sheet-actions",
-                if running() {
-                    button { class: "btn btn-glass", r#type: "button", onclick: move |_| state.close_sheet(), "I'm okay" }
-                    button {
-                        class: "btn btn-primary btn-grow",
-                        r#type: "button",
-                        onclick: move |_| {
-                            state.close_sheet();
-                            state.open_sheet(crate::state::SheetKind::Call);
-                        },
-                        "Call Nora"
-                    }
-                } else {
-                    button { class: "btn btn-primary btn-wide", r#type: "button", onclick: move |_| running.set(true), "Start" }
-                }
-            }
-            p { class: "sheet-fine", "Stays on this phone." }
-        }
-    }
-}
-
 #[component]
 pub fn CaptureSheet() -> Element {
     let mut state = use_context::<AppState>();
+    let mut live = use_context::<Live>();
+    let nav = use_navigator();
     let mut text = use_signal(String::new);
+    let mut spoke = use_signal(|| false);
     let (title, hint) = (state.capture_for)().unwrap_or_else(|| {
-        ("Capture".to_string(), "A thought, a task, a reason. It goes to the Inbox.".to_string())
+        ("Capture".to_string(), "A thought, a link, a reason. It goes to your Mind inbox.".to_string())
     });
     rsx! {
         div { class: "sheet-body capture",
@@ -131,10 +93,19 @@ pub fn CaptureSheet() -> Element {
                     target: "capture",
                     class: "mic-lg",
                     size: 24,
-                    on_text: move |t: String| { let v = append_text(&text.peek(), &t); text.set(v) },
+                    on_text: move |t: String| { let v = append_text(&text.peek(), &t); text.set(v); spoke.set(true) },
                 }
                 crate::components::photo::PhotoButton { class: "photo-lg", size: 24 }
-                span { class: "cap-hint", "Mic to speak, camera for a marked sheet" }
+                button {
+                    class: "cap-hint cap-mind",
+                    r#type: "button",
+                    onclick: move |_| {
+                        *crate::pages::mission::mind::OPEN_MIND.write() = true;
+                        state.close_sheet();
+                        nav.push(crate::app::Route::Mission {});
+                    },
+                    "Open Mind"
+                }
                 button {
                     class: "btn btn-primary",
                     r#type: "button",
@@ -142,9 +113,11 @@ pub fn CaptureSheet() -> Element {
                     onclick: move |_| {
                         let t = text().trim().to_string();
                         if !t.is_empty() {
+                            // Saved verbatim to the Mind library inbox (offline-safe outbox).
+                            live.write("mind_save", serde_json::json!({ "text": t, "origin": if spoke() { "voice" } else { "capture" } }));
                             state.captures.write().push(t);
                             state.close_sheet();
-                            state.toast("Saved to Inbox");
+                            state.toast("Saved to Mind");
                         }
                     },
                     "Save"

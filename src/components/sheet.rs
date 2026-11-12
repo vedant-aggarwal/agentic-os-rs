@@ -5,8 +5,9 @@ use dioxus::prelude::*;
 
 use crate::components::icon::{Icon, IconName};
 use crate::pages::sheets::{
-    CallSheet, CaptureSheet, LaunchSheet, LevelsSheet, MoodSheet, PrintSheet, ProfileSheet, WaveSheet,
+    CallSheet, CaptureSheet, LaunchSheet, LevelsSheet, MoodSheet, PrintSheet, ProfileSheet,
 };
+use crate::pages::wave::WaveSheet;
 use crate::state::{AppState, SheetKind};
 
 #[component]

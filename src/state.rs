@@ -114,6 +114,10 @@ impl AppState {
             crate::call::request_start(None);
             return;
         }
+        // Wave is private: Safe mode has no way in.
+        if kind == SheetKind::Wave && *self.safe.peek() {
+            return;
+        }
         if kind == SheetKind::Capture {
             self.capture_for.set(None);
         }

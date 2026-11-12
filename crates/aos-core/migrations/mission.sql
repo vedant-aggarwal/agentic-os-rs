@@ -77,7 +77,7 @@ CREATE TABLE IF NOT EXISTS board_item (
     id         TEXT PRIMARY KEY,
     board_id   TEXT NOT NULL REFERENCES board(id) ON DELETE CASCADE,
     kind       TEXT NOT NULL CHECK (kind IN ('image', 'text', 'link', 'goal', 'board')),
-    ref_kind   TEXT,               -- mc_node | mc_goal | board
+    ref_kind   TEXT,               -- mc_node | mc_goal | board | mind_item
     ref_id     TEXT,
     x          REAL NOT NULL DEFAULT 0,
     y          REAL NOT NULL DEFAULT 0,

@@ -1,0 +1,171 @@
+/* Mind OS (Aura dark): the library grid, search, capture row and the detail sheet.
+   Quiet by default: image-first cards, no counters on cards, tags only in the detail.
+   Each card carries its dominant colour in --c; it glows softly behind the card on hover only. */
+
+.mc-seg { grid-template-columns: 1.55fr 0.85fr 1fr 1fr 1fr; }
+.mc-seg button { font-size: 12.5px; }
+
+.mind-page { position: relative; }
+.mind-top { display: grid; gap: 12px; margin-bottom: 10px; }
+.mind-title { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; }
+.mind-count { font-size: 13px; color: var(--muted); font-variant-numeric: tabular-nums; }
+
+/* Search pill */
+.mind-search {
+  position: relative; display: flex; align-items: center; gap: 8px; height: 46px; padding: 0 14px;
+  border-radius: var(--r-pill); background: var(--glass); border: 1px solid var(--line);
+  -webkit-backdrop-filter: blur(18px); backdrop-filter: blur(18px);
+  transition: border-color var(--t-fast), box-shadow var(--t-mid) var(--ease-out);
+}
+.mind-search:focus-within { border-color: rgba(155, 140, 255, 0.5); box-shadow: 0 0 0 4px rgba(155, 140, 255, 0.12), 0 18px 50px -20px rgba(155, 140, 255, 0.5); }
+.mind-search-ico { color: var(--muted); display: grid; }
+.mind-search input { flex: 1; min-width: 0; font: inherit; font-size: 16px; color: var(--ink); background: none; border: 0; outline: none; }
+.mind-search input::-webkit-search-cancel-button { display: none; }
+.mind-search-x { color: var(--muted); display: grid; padding: 6px; }
+.mind-kbd { display: none; font: 500 12px/1 "Geist Mono", monospace; color: var(--faint); padding: 4px 7px; border-radius: 6px; border: 1px solid var(--line-2); }
+
+/* Capture row */
+.mind-capture { display: flex; align-items: center; gap: 6px; margin: 4px 0 12px; padding: 5px 5px 5px 16px; border-radius: 22px; background: var(--card); box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.06); }
+.mind-capture-field { flex: 1; min-width: 0; font: inherit; font-size: 15px; color: var(--ink); background: none; border: 0; outline: none; padding: 9px 0; }
+.mind-capture-field::placeholder { color: var(--faint); }
+.mind-icon-btn, .mind-capture .mic { position: relative; width: 38px; height: 38px; flex: none; display: grid; place-items: center; border-radius: 50%; color: var(--ink-2); background: rgba(255, 255, 255, 0.05); cursor: pointer; }
+.mind-save { height: 38px; padding: 0 16px; border-radius: var(--r-pill); background: var(--mind); color: #0b0718; font-weight: 600; font-size: 14px; flex: none; }
+.sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0; }
+
+/* Filters */
+.mind-filters { display: flex; gap: 6px; overflow-x: auto; margin: 0 calc(var(--gutter) * -1) 14px; padding: 0 var(--gutter); scrollbar-width: none; }
+.mind-filters::-webkit-scrollbar { display: none; }
+.mind-filters button { flex: none; padding: 7px 13px; border-radius: var(--r-pill); font-size: 13px; color: var(--muted); background: rgba(255, 255, 255, 0.04); transition: color var(--t-fast), background var(--t-fast); }
+.mind-filters button.on { color: var(--ink); background: rgba(155, 140, 255, 0.18); }
+
+/* Masonry grid */
+.mind-grid { columns: 2; column-gap: 8px; }
+.mind-card {
+  position: relative; display: block; width: 100%; margin: 0 0 8px; break-inside: avoid; text-align: left;
+  border-radius: 20px; overflow: hidden; background: var(--card); isolation: isolate;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.06);
+  transition: transform var(--t-mid) var(--ease-out), box-shadow 700ms var(--ease-out);
+  animation: mind-in 700ms var(--ease-out) both;
+}
+@keyframes mind-in { from { opacity: 0; transform: translateY(10px); } }
+.mind-card:active { transform: scale(0.98); }
+@media (hover: hover) {
+  .mind-card:hover { box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.08), 0 24px 60px -18px color-mix(in srgb, var(--c) 70%, transparent); transform: translateY(-2px); }
+}
+.mind-card-media { position: relative; width: 100%; background: color-mix(in srgb, var(--c) 18%, #0b0b0f); }
+.mind-card-media img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
+.mind-play { position: absolute; left: 10px; top: 10px; width: 28px; height: 28px; border-radius: 50%; background: rgba(0, 0, 0, 0.5); -webkit-backdrop-filter: blur(8px); backdrop-filter: blur(8px); }
+.mind-play::after { content: ""; position: absolute; left: 11px; top: 8px; border-left: 9px solid #fff; border-top: 6px solid transparent; border-bottom: 6px solid transparent; }
+.mind-card-body { padding: 10px 12px 11px; display: grid; gap: 4px; }
+.mind-card.is-text .mind-card-body { padding: 14px 14px 12px; gap: 8px; }
+.mind-card-title { font-size: 13.5px; font-weight: 550; color: var(--ink); line-height: 1.3; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+.mind-card-desc { font-size: 12.5px; color: var(--muted); line-height: 1.38; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+.mind-excerpt { font-size: 14px; line-height: 1.45; color: var(--ink-2); white-space: pre-line; display: -webkit-box; -webkit-line-clamp: 7; -webkit-box-orient: vertical; overflow: hidden; }
+.mind-quote { font-family: ui-serif, "New York", Georgia, serif; font-style: italic; font-size: 17px; line-height: 1.4; color: var(--ink); display: -webkit-box; -webkit-line-clamp: 8; -webkit-box-orient: vertical; overflow: hidden; }
+.mind-quote::before { content: "\201C"; display: block; font-size: 34px; line-height: 0.6; color: var(--mind); margin-bottom: 4px; font-style: normal; }
+.mind-card[data-kind="quote"] { background: radial-gradient(120% 80% at 0% 0%, rgba(155, 140, 255, 0.10), transparent 60%), var(--card); }
+.mind-card-foot { display: flex; align-items: center; gap: 6px; min-width: 0; }
+.mind-chip { flex: none; font-size: 11px; color: var(--muted); padding: 2px 8px; border-radius: var(--r-pill); background: rgba(255, 255, 255, 0.06); }
+.mind-domain { font-size: 11.5px; color: var(--faint); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.mind-lock { margin-left: auto; color: var(--faint); display: grid; }
+.mind-reading { margin-left: auto; font-size: 11px; color: #d6cfff; }
+.mind-card.is-reading .mind-card-media::after, .mind-card.is-reading.is-text::after {
+  content: ""; position: absolute; inset: 0; pointer-events: none;
+  background: linear-gradient(100deg, transparent 30%, rgba(255, 255, 255, 0.07) 50%, transparent 70%);
+  background-size: 250% 100%; animation: mind-shimmer 2.2s ease-in-out infinite;
+}
+@keyframes mind-shimmer { from { background-position: 120% 0; } to { background-position: -120% 0; } }
+
+/* Empty */
+.mind-empty { text-align: center; padding: 40px 16px; display: grid; gap: 8px; justify-items: center; color: var(--muted); font-size: 14px; }
+.mind-empty h3 { color: var(--ink); font-size: 18px; letter-spacing: -0.01em; }
+.mind-empty p { max-width: 38ch; }
+.mind-empty-orb { width: 88px; height: 88px; border-radius: 50%; margin-bottom: 8px; background: radial-gradient(circle at 35% 30%, #d6cfff, var(--mind) 45%, #3a2f8f 80%); box-shadow: 0 0 60px rgba(155, 140, 255, 0.45); }
+.mind-busy { position: fixed; left: 50%; bottom: calc(var(--sab) + 96px); transform: translateX(-50%); padding: 8px 14px; border-radius: var(--r-pill); background: var(--glass); border: 1px solid var(--line); font-size: 13px; z-index: 30; }
+body.mind-dragging .mind-page::after { content: "Drop to save"; position: fixed; inset: 12px; border-radius: 28px; border: 2px dashed rgba(155, 140, 255, 0.6); background: rgba(155, 140, 255, 0.08); display: grid; place-items: center; font-size: 18px; color: #d6cfff; z-index: 60; pointer-events: none; }
+
+/* Detail */
+.mind-layer { position: fixed; inset: 0; z-index: 70; display: flex; align-items: flex-end; justify-content: center; }
+.mind-layer .scrim { position: absolute; inset: 0; background: var(--scrim); animation: mc-fade 200ms ease-out; }
+.mind-sheet {
+  position: relative; width: 100%; height: 100%; overflow-y: auto; padding: calc(var(--sat) + 12px) 18px calc(var(--sab) + 28px);
+  background: radial-gradient(70% 40% at 50% 0%, color-mix(in srgb, var(--c) 22%, transparent), transparent 70%), #0b0b0f;
+  animation: mc-up 420ms var(--ease-out);
+}
+.mind-sheet-top { display: flex; align-items: center; gap: 10px; margin-bottom: 12px; }
+.mind-sheet-date { flex: 1; font-size: 12px; color: var(--faint); }
+.mind-sheet-media { position: relative; margin-bottom: 14px; isolation: isolate; }
+.mind-sheet-img { position: relative; width: 100%; max-height: 52svh; object-fit: contain; border-radius: 22px; background: rgba(255, 255, 255, 0.03); }
+.mind-sheet-glow { position: absolute; inset: 8% 4%; width: 92%; height: 84%; object-fit: cover; filter: blur(46px) saturate(1.4); opacity: 0.45; z-index: -1; }
+.mind-inspector { display: grid; gap: 10px; min-width: 0; }
+.mind-title-field { width: 100%; font: inherit; font-size: 22px; font-weight: 600; letter-spacing: -0.02em; color: var(--ink); background: none; border: 0; border-radius: 10px; padding: 2px 0; outline: none; }
+.mind-title-field:focus { background: rgba(255, 255, 255, 0.04); }
+.mind-source { font-size: 13px; color: #d6cfff; text-decoration: none; justify-self: start; }
+.mind-block { padding: 14px; border-radius: 20px; background: var(--card); box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.05); display: grid; gap: 8px; font-size: 14.5px; line-height: 1.5; color: var(--ink-2); }
+.mind-block h4 { display: flex; align-items: center; gap: 6px; font-size: 12px; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; color: var(--muted); }
+.mind-nora { background: radial-gradient(90% 70% at 0% 0%, rgba(155, 140, 255, 0.14), transparent 70%), var(--card); }
+.mind-nora h4 { color: #d6cfff; }
+.mind-summary { color: var(--muted); font-size: 14px; }
+.mind-shimmer { color: var(--muted); background: linear-gradient(90deg, var(--muted) 30%, #fff 50%, var(--muted) 70%); background-size: 250% 100%; -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent; animation: mind-shimmer 2.2s ease-in-out infinite; }
+.mind-muted { color: var(--faint); font-size: 13px; }
+.mind-raw { white-space: pre-wrap; color: var(--ink); font-size: 15px; }
+.mind-wl { display: inline; padding: 1px 7px; margin: 0 1px; border-radius: 8px; background: rgba(155, 140, 255, 0.16); color: #d6cfff; font: inherit; }
+.mind-wl.is-dangling { background: rgba(255, 255, 255, 0.05); color: var(--muted); border: 1px dashed var(--line-2); }
+.mind-note { display: grid; gap: 2px; padding-left: 10px; border-left: 2px solid rgba(155, 140, 255, 0.35); }
+.mind-note-meta { font-size: 11.5px; color: var(--faint); }
+.mind-add-row input, .mind-tag-add input, .mind-link-find input {
+  width: 100%; font: inherit; font-size: 14px; color: var(--ink); background: rgba(255, 255, 255, 0.04);
+  border: 1px solid var(--line); border-radius: 14px; padding: 10px 12px; outline: none;
+}
+.mind-add-row input:focus, .mind-tag-add input:focus, .mind-link-find input:focus { border-color: rgba(155, 140, 255, 0.45); }
+.mind-tags { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+.mind-tag { display: inline-flex; align-items: center; gap: 4px; padding: 4px 6px 4px 10px; border-radius: var(--r-pill); font-size: 12.5px; color: var(--ink-2); background: rgba(255, 255, 255, 0.07); }
+.mind-tag.by-claude { color: #d6cfff; background: rgba(155, 140, 255, 0.12); }
+.mind-tag button { color: var(--faint); padding: 0 4px; font-size: 14px; line-height: 1; }
+.mind-tag-add { flex: 1; min-width: 90px; }
+.mind-tag-add input { padding: 5px 10px; border-radius: var(--r-pill); font-size: 12.5px; }
+.mind-link-row { display: grid; grid-template-columns: auto 1fr; gap: 2px 10px; align-items: baseline; text-align: left; padding: 9px 10px; border-radius: 14px; background: rgba(255, 255, 255, 0.04); font-size: 14px; color: var(--ink); }
+.mind-link-row:disabled { opacity: 0.8; cursor: default; }
+.mind-link-row.is-back { grid-template-columns: 1fr; }
+.mind-link-rel { font-size: 11px; color: var(--faint); text-transform: uppercase; letter-spacing: 0.05em; }
+.mind-link-ctx { font-size: 12.5px; color: var(--muted); }
+.mind-sub-h { font-size: 12px; color: var(--faint); margin-top: 4px; }
+.mind-link-find { display: grid; gap: 6px; }
+.mind-link-hit { display: flex; gap: 8px; align-items: center; text-align: left; padding: 8px 10px; border-radius: 12px; background: rgba(155, 140, 255, 0.08); font-size: 13.5px; color: var(--ink); }
+.mind-on-board { font-size: 13.5px; color: var(--muted); }
+.mind-on-board b { color: var(--ink); font-weight: 550; }
+.mind-board-pick { display: flex; flex-wrap: wrap; gap: 6px; }
+.mind-board-btn { padding: 8px 12px; border-radius: 12px; background: rgba(255, 255, 255, 0.06); font-size: 13.5px; color: var(--ink); }
+.mind-actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 4px; }
+.mind-block .mc-ghost { justify-self: start; }
+
+/* Capture sheet link */
+.cap-mind { color: #d6cfff; text-decoration: underline; text-underline-offset: 3px; background: none; }
+
+/* Wider screens: more columns, a split detail */
+@media (min-width: 700px) {
+  .mind-grid { columns: 3; column-gap: 10px; }
+  .mind-card { margin-bottom: 10px; }
+  .mind-kbd { display: inline-block; }
+  .mind-layer { align-items: center; padding: 28px; }
+  .mind-sheet { height: auto; max-height: calc(100svh - 56px); max-width: 1040px; padding: 18px 22px 24px; border-radius: 30px; border: 1px solid var(--line-2); }
+  .mind-sheet-grid:has(.mind-sheet-media) { display: grid; grid-template-columns: minmax(0, 1.15fr) minmax(320px, 1fr); gap: 22px; align-items: start; }
+  .mind-sheet-media { position: sticky; top: 0; }
+  .mind-sheet-img { max-height: calc(100svh - 160px); }
+}
+@media (min-width: 1100px) {
+  .page.mc-page[data-seg="mind"] { max-width: 1320px; }
+  .mind-top { grid-template-columns: auto minmax(320px, 520px); align-items: center; justify-content: space-between; }
+  .mind-title { flex-direction: column; align-items: flex-start; gap: 2px; }
+  .mind-grid { columns: 4 230px; column-gap: 12px; }
+  .mind-card { margin-bottom: 12px; }
+  .mind-filters { margin-left: 0; margin-right: 0; padding: 0; flex-wrap: wrap; }
+}
+@media (min-width: 1500px) {
+  .mind-grid { columns: 5 230px; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .mind-card, .mind-sheet { animation: none; }
+  .mind-card.is-reading .mind-card-media::after, .mind-shimmer { animation: none; }
+}

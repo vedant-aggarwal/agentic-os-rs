@@ -11,6 +11,7 @@ use crate::live::Live;
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
 pub enum Seg {
     Viz,
+    Mind,
     Version,
     NewMe,
     Growth,
@@ -20,6 +21,7 @@ impl Seg {
     pub fn slug(self) -> &'static str {
         match self {
             Seg::Viz => "viz",
+            Seg::Mind => "mind",
             Seg::Version => "version",
             Seg::NewMe => "newme",
             Seg::Growth => "growth",
@@ -28,6 +30,7 @@ impl Seg {
     pub fn from_slug(s: &str) -> Option<Seg> {
         Some(match s {
             "viz" => Seg::Viz,
+            "mind" => Seg::Mind,
             "version" => Seg::Version,
             "newme" => Seg::NewMe,
             "growth" => Seg::Growth,

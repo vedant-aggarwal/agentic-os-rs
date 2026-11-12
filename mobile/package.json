@@ -1,0 +1,26 @@
+{
+  "name": "agentic-os-mobile",
+  "private": true,
+  "type": "module",
+  "description": "Capacitor shell for the phones: wraps the React web build (../web/dist) with the native iOS targets and the Android app.",
+  "scripts": {
+    "web": "node scripts/ensure-web.mjs",
+    "sync": "node scripts/ensure-web.mjs && npx cap sync",
+    "ios": "node scripts/ensure-web.mjs && npx cap sync ios",
+    "android": "node scripts/ensure-web.mjs && npx cap sync android",
+    "apk": "node scripts/ensure-web.mjs && npx cap sync android && cd android && gradlew.bat assembleDebug"
+  },
+  "dependencies": {
+    "@capacitor/android": "8.5.3",
+    "@capacitor/app": "^8.1.2",
+    "@capacitor/core": "8.5.3",
+    "@capacitor/haptics": "^8.0.2",
+    "@capacitor/ios": "8.5.3",
+    "@capacitor/keyboard": "^8.0.6",
+    "@capacitor/splash-screen": "^8.0.2",
+    "@capacitor/status-bar": "^8.0.4"
+  },
+  "devDependencies": {
+    "@capacitor/cli": "8.5.3"
+  }
+}

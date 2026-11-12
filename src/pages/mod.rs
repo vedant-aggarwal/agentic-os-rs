@@ -6,6 +6,7 @@ pub mod pair;
 pub mod placeholder;
 pub mod sheets;
 pub mod unlock;
+pub mod wave;
 pub mod work;
 
 pub use hero3d_demo::Hero3dDemo;

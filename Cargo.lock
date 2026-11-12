@@ -239,6 +239,7 @@ dependencies = [
  "base64 0.22.1",
  "chrono",
  "futures",
+ "image",
  "reqwest",
  "serde",
  "serde_json",

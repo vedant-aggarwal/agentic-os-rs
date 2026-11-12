@@ -41,7 +41,7 @@ fn mime_of(headers: &HeaderMap) -> String {
 }
 
 /// Trust the bytes over the header: JPEG, PNG, GIF and WebP have clear signatures.
-fn sniff(bytes: &[u8], claimed: &str) -> String {
+pub(crate) fn sniff(bytes: &[u8], claimed: &str) -> String {
     match bytes {
         [0xFF, 0xD8, 0xFF, ..] => "image/jpeg".into(),
         [0x89, b'P', b'N', b'G', ..] => "image/png".into(),

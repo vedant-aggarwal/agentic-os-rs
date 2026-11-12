@@ -1,10 +1,11 @@
-//! Mission tab: Visualization (boards), Version I want to be, New Me, Growth.
+//! Mission tab: Visualization (boards), Mind (the library), Version I want to be, New Me, Growth.
 //! Design: research/mission-control.md (private), design/specs/boards.md, design/MISSION-BUILD.md.
 //!
-//! Deep links for screenshots and reloads: `/mission#viz`, `#version`, `#newme`, `#growth`,
+//! Deep links for screenshots and reloads: `/mission#viz`, `#mind`, `#version`, `#newme`, `#growth`,
 //! `#board=<id>`, `#board=<id>&canvas`.
 
 mod data;
+pub mod mind;
 mod newme;
 mod version;
 mod viz;
@@ -24,8 +25,18 @@ pub fn Mission() -> Element {
     let live = use_context::<Live>();
     let mut mc = use_context_provider(|| Mc::new(live));
     let state = use_context::<AppState>();
+    let mind = use_context_provider(|| mind::Mind::new(live));
     use_board_bridge(mc, live, state);
+    mind::use_mind_bridge(mind, mc, live, state);
     use_hash(mc);
+    // Opened from the capture sheet's "Open Mind".
+    use_effect(move || {
+        if mind::OPEN_MIND() {
+            *mind::OPEN_MIND.write() = false;
+            mc.seg.set(Seg::Mind);
+            set_hash("mind");
+        }
+    });
 
     use_effect(move || {
         if live.conn.read().is_some() {
@@ -57,7 +68,7 @@ pub fn Mission() -> Element {
                 }
             }
             nav { class: "mc-seg", role: "tablist",
-                for (s, label) in [(Seg::Viz, "Visualization"), (Seg::Version, "Version"), (Seg::NewMe, "New Me"), (Seg::Growth, "Growth")] {
+                for (s, label) in [(Seg::Viz, "Visualization"), (Seg::Mind, "Mind"), (Seg::Version, "Version"), (Seg::NewMe, "New Me"), (Seg::Growth, "Growth")] {
                     button {
                         key: "{s.slug()}",
                         r#type: "button",
@@ -74,6 +85,7 @@ pub fn Mission() -> Element {
             }
             match seg {
                 Seg::Viz => rsx! { viz::VizHome {} },
+                Seg::Mind => rsx! { mind::MindHome {} },
                 Seg::Version => rsx! { version::VersionView {} },
                 Seg::NewMe => rsx! { newme::NewMeView {} },
                 Seg::Growth => rsx! { MissionGrowth {} },
@@ -83,6 +95,7 @@ pub fn Mission() -> Element {
         if (mc.card)().is_some() { viz::CardSheet {} }
         if (mc.adding)() { viz::AddSheet {} }
         if (mc.playing)() { viz::PlayLayer {} }
+        if (mind.open)().is_some() { mind::MindDetail {} }
     }
 }
 

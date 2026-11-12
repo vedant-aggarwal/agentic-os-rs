@@ -10,9 +10,12 @@ pub mod events;
 pub mod hinglish;
 pub mod limit;
 pub mod media;
+pub mod mind;
+pub mod mind_fetch;
 pub mod routes;
 pub mod state;
 pub mod voice;
+pub mod web;
 
 use std::net::SocketAddr;
 use std::path::PathBuf;
@@ -97,9 +100,12 @@ pub async fn serve_with(
     let state = open_state(&config.db_path, registry)?;
     info!(db = %config.db_path.display(), "store open");
     state.tracker.spawn(events::watch_changes(state.clone()));
+    // Mind OS: fetch links and make thumbnails for saved items (Claude tagging runs in Nora).
+    state.tracker.spawn(mind::worker(state.clone()));
 
     // The limiter is outermost so it also covers the Work, Nora and UI routes merged by `extend`.
-    let app = limit::guard(extend(api_router(state.clone())), limit::Limits::default());
+    // CORS sits outside the limiter so the phone shell's preflight requests get answered first.
+    let app = limit::guard(extend(api_router(state.clone())), limit::Limits::default()).layer(web::cors());
     let listener = tokio::net::TcpListener::bind(config.addr)
         .await
         .with_context(|| format!("binding {}", config.addr))?;

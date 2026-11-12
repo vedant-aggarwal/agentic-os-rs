@@ -161,7 +161,7 @@ pub fn Shortcuts() -> Element {
     let mut state = use_context::<AppState>();
     rsx! {
         nav { class: "shortcuts", aria_label: "Shortcuts",
-            for (kind, label, icon) in SHORTCUTS {
+            for (kind, label, icon) in SHORTCUTS.into_iter().filter(|(k, _, _)| !(*k == SheetKind::Wave && (state.safe)())) {
                 button {
                     key: "{label}",
                     class: "sc sc-{kind.slug()}",

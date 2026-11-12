@@ -1,0 +1,12 @@
+{
+  "appId": "com.example.agenticos",
+  "appName": "Agentic OS",
+  "webDir": "../web/dist",
+  "backgroundColor": "#0b0c12",
+  "ios": { "contentInset": "never", "scrollEnabled": false, "backgroundColor": "#0b0c12" },
+  "android": { "backgroundColor": "#0b0c12" },
+  "plugins": {
+    "SplashScreen": { "launchShowDuration": 400, "backgroundColor": "#0b0c12", "showSpinner": false },
+    "Keyboard": { "resize": "native" }
+  }
+}

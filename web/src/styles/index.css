@@ -1,0 +1,342 @@
+@import "tailwindcss";
+
+/* ═══ Aura design system ═══════════════════════════════════════════════════
+   Dark by default. Light appears only where there is progress, in the
+   pillar's own hue. Stone for what you read, glass only for what floats.
+   Tokens live in @theme so Tailwind utilities and plain CSS share them.
+   ═════════════════════════════════════════════════════════════════════════ */
+
+@font-face {
+  font-family: "Geist";
+  src: url("/fonts/Geist-Variable.woff2") format("woff2");
+  font-weight: 100 900;
+  font-display: swap;
+}
+@font-face {
+  font-family: "Geist Mono";
+  src: url("/fonts/GeistMono-Variable.woff2") format("woff2");
+  font-weight: 100 900;
+  font-display: swap;
+}
+
+@theme {
+  /* type families: SF on iPhone, Geist everywhere else */
+  --font-sans: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Geist", system-ui, sans-serif;
+  --font-round: ui-rounded, "SF Pro Rounded", -apple-system, "Geist", system-ui, sans-serif;
+  --font-mono: ui-monospace, "SF Mono", "Geist Mono", Menlo, Consolas, monospace;
+
+  /* ground and stone */
+  --color-ground: #050507;
+  --color-stone: #111116;
+  --color-raised: #1b1b22;
+  --color-ink: #f5f5f7;
+  --color-ink-2: #a9a9b3;
+  --color-ink-3: #7c7c87;
+  --color-line: rgb(255 255 255 / 0.08);
+  --color-fill-1: rgb(255 255 255 / 0.045);
+  --color-fill-2: rgb(255 255 255 / 0.08);
+  --color-fill-3: rgb(255 255 255 / 0.13);
+
+  /* pillar hues (fills, strokes and glows; text only through the -ink tints) */
+  --color-phys: #ff5a4e;
+  --color-phys-ink: #ff8a80;
+  --color-money: #3fd0ff;
+  --color-money-ink: #7fe0ff;
+  --color-mind: #9b8cff;
+  --color-mind-ink: #b9aeff;
+  --color-xp: #ffc24b;
+  --color-xp-ink: #ffd27a;
+  --color-needs: #ff9f0a;
+  --color-calm: #6daeff;
+  --color-danger: #ff6961;
+
+  /* type scale: size / leading, iOS roles */
+  --text-display: 34px;
+  --text-display--line-height: 41px;
+  --text-display--letter-spacing: -0.026em;
+  --text-title1: 28px;
+  --text-title1--line-height: 34px;
+  --text-title1--letter-spacing: -0.02em;
+  --text-title2: 22px;
+  --text-title2--line-height: 28px;
+  --text-title2--letter-spacing: -0.015em;
+  --text-title3: 20px;
+  --text-title3--line-height: 25px;
+  --text-title3--letter-spacing: -0.012em;
+  --text-headline: 17px;
+  --text-headline--line-height: 22px;
+  --text-body: 17px;
+  --text-body--line-height: 22px;
+  --text-callout: 16px;
+  --text-callout--line-height: 21px;
+  --text-subhead: 15px;
+  --text-subhead--line-height: 20px;
+  --text-footnote: 13px;
+  --text-footnote--line-height: 18px;
+  --text-caption: 12px;
+  --text-caption--line-height: 16px;
+
+  /* radii: inner = outer - padding, so nested corners stay concentric */
+  --radius-xs: 6px;
+  --radius-sm: 10px;
+  --radius-md: 14px;
+  --radius-lg: 20px;
+  --radius-xl: 26px;
+  --radius-sheet: 38px;
+
+  --spacing-gutter: 16px;
+
+  /* motion (CSS side; springs live in src/ui/motion.ts) */
+  --ease-settle: cubic-bezier(0.22, 1, 0.36, 1);
+  --ease-move: cubic-bezier(0.32, 0.72, 0, 1);
+}
+
+:root {
+  color-scheme: dark;
+  --gutter: 16px;
+  --tabbar-h: 64px;
+  --safe-t: env(safe-area-inset-top, 0px);
+  --safe-b: env(safe-area-inset-bottom, 0px);
+  --safe-l: env(safe-area-inset-left, 0px);
+  --safe-r: env(safe-area-inset-right, 0px);
+
+  /* materials, after the old app's Obsidian skin */
+  --tex-ground: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='180' height='180'%3E%3Cfilter id='g' color-interpolation-filters='sRGB'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.72' numOctaves='2' seed='3' stitchTiles='stitch'/%3E%3CfeColorMatrix values='1.7 0 0 0 -.35 1.7 0 0 0 -.35 1.7 0 0 0 -.35 0 0 0 0 .032'/%3E%3C/filter%3E%3Crect width='180' height='180' filter='url(%23g)'/%3E%3C/svg%3E");
+  --tex-stone: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='128' height='128'%3E%3Cfilter id='s' color-interpolation-filters='sRGB'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='1.05' numOctaves='3' seed='11' stitchTiles='stitch'/%3E%3CfeColorMatrix values='1.8 0 0 0 -.4 1.8 0 0 0 -.4 1.8 0 0 0 -.4 0 0 0 0 .06'/%3E%3C/filter%3E%3Crect width='128' height='128' filter='url(%23s)'/%3E%3C/svg%3E");
+  --stone-sheen: linear-gradient(180deg, rgb(255 255 255 / 0.03), rgb(255 255 255 / 0) 96px);
+  --stone-edge: inset 0 1px 0 rgb(255 255 255 / 0.07), 0 1px 2px rgb(0 0 0 / 0.6);
+  --glass: rgb(36 36 42 / 0.5);
+  --glass-blur: blur(24px) saturate(185%) brightness(1.06);
+  --glass-edge: inset 0 1px 1px rgb(255 255 255 / 0.14), inset 0 -1px 1px rgb(255 255 255 / 0.05), 0 10px 28px rgb(0 0 0 / 0.5);
+  --glass-rim: linear-gradient(155deg, rgb(255 255 255 / 0.55) 0%, rgb(255 255 255 / 0.14) 16%, rgb(255 255 255 / 0.04) 44%, rgb(255 255 255 / 0.07) 70%, rgb(255 255 255 / 0.3) 100%);
+  --sheet: rgb(22 22 27 / 0.86);
+  --sheet-blur: blur(44px) saturate(150%);
+  --scrim: rgb(0 0 0 / 0.56);
+}
+
+@property --amb {
+  syntax: "<color>";
+  inherits: true;
+  initial-value: #3fd0ff;
+}
+
+/* ═══ base (layered, so utilities win) ═══ */
+@layer base {
+html,
+body,
+#root {
+  height: 100%;
+}
+html {
+  background: var(--color-ground);
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
+}
+body {
+  margin: 0;
+  background: var(--tex-ground) 0 0 / 180px 180px, var(--color-ground);
+  color: var(--color-ink);
+  font-family: var(--font-sans);
+  font-size: 17px;
+  line-height: 22px;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  -webkit-tap-highlight-color: transparent;
+  overscroll-behavior: none;
+  font-feature-settings: "ss01" on, "cv11" on;
+}
+button {
+  font: inherit;
+  color: inherit;
+  cursor: pointer;
+  -webkit-user-select: none;
+  user-select: none;
+  touch-action: manipulation;
+}
+input,
+textarea {
+  font: inherit;
+  color: inherit;
+}
+::selection {
+  background: rgb(155 140 255 / 0.35);
+}
+:focus-visible {
+  outline: 2px solid var(--color-ink);
+  outline-offset: 2px;
+}
+input:focus-visible,
+textarea:focus-visible {
+  outline: none;
+  box-shadow: inset 0 0 0 1.5px rgb(255 255 255 / 0.16);
+}
+img {
+  -webkit-user-drag: none;
+  user-select: none;
+}
+
+}
+
+/* ═══ materials ═══ */
+@layer components {
+  /* E1 stone: every panel you read */
+  .stone {
+    background: var(--tex-stone) 0 0 / 128px 128px, var(--stone-sheen), var(--color-stone);
+    box-shadow: var(--stone-edge);
+  }
+  /* an inlay set into stone */
+  .inlay {
+    background: var(--color-fill-1);
+  }
+  /* E2 glass: chrome that floats (tab bar, top buttons, pills) */
+  .glass {
+    position: relative;
+    background: var(--glass);
+    -webkit-backdrop-filter: var(--glass-blur);
+    backdrop-filter: var(--glass-blur);
+    box-shadow: var(--glass-edge);
+  }
+  .glass::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    border-radius: inherit;
+    padding: 1px;
+    background: var(--glass-rim);
+    -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+    -webkit-mask-composite: xor;
+    mask: linear-gradient(#000 0 0) content-box exclude, linear-gradient(#000 0 0);
+    pointer-events: none;
+    opacity: 0.8;
+  }
+  /* E3: sheets and anything modal */
+  .sheet {
+    background: var(--tex-stone) 0 0 / 128px 128px, var(--sheet);
+    -webkit-backdrop-filter: var(--sheet-blur);
+    backdrop-filter: var(--sheet-blur);
+    box-shadow: inset 0 1px 0 rgb(255 255 255 / 0.1), 0 24px 64px rgb(0 0 0 / 0.64);
+  }
+  .hair {
+    box-shadow: inset 0 -0.5px 0 var(--color-line);
+  }
+  .hair-t {
+    box-shadow: inset 0 0.5px 0 var(--color-line);
+  }
+  .tnum {
+    font-variant-numeric: tabular-nums;
+  }
+  .press {
+    transition: transform 120ms var(--ease-settle), background-color 160ms ease, opacity 160ms ease;
+  }
+  .press:active {
+    transform: scale(0.97);
+  }
+  .eyebrow {
+    font-size: 12px;
+    line-height: 16px;
+    font-weight: 600;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--color-ink-2);
+  }
+  .fig {
+    font-family: var(--font-round);
+    font-variant-numeric: tabular-nums;
+    font-weight: 650;
+    letter-spacing: -0.02em;
+  }
+  .no-scrollbar {
+    scrollbar-width: none;
+  }
+  .no-scrollbar::-webkit-scrollbar {
+    display: none;
+  }
+  .pt-safe {
+    padding-top: var(--safe-t);
+  }
+  .pb-safe {
+    padding-bottom: var(--safe-b);
+  }
+  /* the scroll fade under the top bar */
+  .veil-top {
+    background: rgb(5 5 7 / 0.78);
+    -webkit-backdrop-filter: blur(20px) saturate(160%);
+    backdrop-filter: blur(20px) saturate(160%);
+    -webkit-mask: linear-gradient(180deg, #000 72%, transparent);
+    mask: linear-gradient(180deg, #000 72%, transparent);
+  }
+}
+
+/* glows: light only where there is progress */
+.glow-body {
+  --g: var(--color-phys);
+}
+.glow-money {
+  --g: var(--color-money);
+}
+.glow-mind {
+  --g: var(--color-mind);
+}
+.glow-xp {
+  --g: var(--color-xp);
+}
+
+@keyframes breathe {
+  0%,
+  100% {
+    opacity: 0.55;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.9;
+    transform: scale(1.06);
+  }
+}
+@keyframes hero-breathe {
+  0%,
+  100% {
+    transform: translateX(-50%) translateY(0) scale(1);
+  }
+  50% {
+    transform: translateX(-50%) translateY(-2px) scale(1.006);
+  }
+}
+.hero-breathe {
+  animation: hero-breathe 5.5s ease-in-out infinite;
+  transform-origin: 50% 100%;
+}
+@keyframes spin-slow {
+  to {
+    transform: rotate(360deg);
+  }
+}
+@keyframes shimmer {
+  0% {
+    background-position: -200px 0;
+  }
+  100% {
+    background-position: 200px 0;
+  }
+}
+.skeleton {
+  background: linear-gradient(90deg, rgb(255 255 255 / 0.04) 0%, rgb(255 255 255 / 0.09) 50%, rgb(255 255 255 / 0.04) 100%) 0 0 / 400px 100%;
+  animation: shimmer 1.4s linear infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+@media (prefers-reduced-transparency: reduce) {
+  .glass,
+  .sheet {
+    -webkit-backdrop-filter: none;
+    backdrop-filter: none;
+    background: var(--color-raised);
+  }
+}
