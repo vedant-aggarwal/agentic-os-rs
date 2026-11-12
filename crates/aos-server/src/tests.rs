@@ -265,3 +265,34 @@ async fn bus_publishes_writes_from_any_process() {
         .unwrap()
         .unwrap();
 }
+
+#[tokio::test]
+async fn board_images_upload_and_serve() {
+    let dir = std::env::temp_dir().join(format!("aos-media-srv-{}", aos_core::ids::new_id()));
+    // SAFETY: only this test in the server binary reads AOS_MEDIA.
+    unsafe { std::env::set_var("AOS_MEDIA", &dir) };
+    let s = state();
+    let t = token(&s);
+    // 3 MB: over the 2 MB API limit, under the 12 MB image limit.
+    let mut png = vec![0x89, b'P', b'N', b'G'];
+    png.resize(3 * 1024 * 1024, 7);
+    let req = Request::builder()
+        .method("POST")
+        .uri("/api/media")
+        .header(header::CONTENT_TYPE, "application/octet-stream")
+        .header(header::AUTHORIZATION, format!("Bearer {t}"))
+        .body(Body::from(png.clone()))
+        .unwrap();
+    let resp = api_router(s.clone()).oneshot(req).await.unwrap();
+    assert_eq!(resp.status(), StatusCode::OK);
+    let row: Value = serde_json::from_slice(&to_bytes(resp.into_body(), 1 << 20).await.unwrap()).unwrap();
+    assert_eq!(row["mime"], "image/png");
+    let id = row["id"].as_str().unwrap();
+    let req = Request::builder().uri(format!("/api/media/{id}?token={t}")).body(Body::empty()).unwrap();
+    let resp = api_router(s.clone()).oneshot(req).await.unwrap();
+    assert_eq!(resp.status(), StatusCode::OK);
+    assert_eq!(to_bytes(resp.into_body(), 8 << 20).await.unwrap().len(), png.len());
+    let (code, _) = send(&s, "GET", &format!("/api/media/{id}"), None, Value::Null).await;
+    assert_eq!(code, StatusCode::UNAUTHORIZED);
+    let _ = std::fs::remove_dir_all(dir);
+}

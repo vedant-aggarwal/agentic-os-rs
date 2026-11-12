@@ -1,7 +1,7 @@
 //! Inbox, Life and Mission on real data.
 //! - Inbox: `inbox_list` (WhatsApp, Gmail) when the server has it, plus tasks with no area.
 //! - Life: the three pillars and their areas; an area shows its tasks, habits and goal.
-//! - Mission: the journal, Growth (week XP and streaks), and what comes next.
+//! - Mission's Growth tab: the journal and Growth (week XP and streaks). The rest of Mission is pages/mission.
 
 use dioxus::prelude::*;
 
@@ -247,7 +247,7 @@ fn AreaPage(area: Area, on_back: EventHandler<()>) -> Element {
 // Mission
 
 #[component]
-pub fn Mission() -> Element {
+pub fn MissionGrowth() -> Element {
     let mut live = use_context::<Live>();
     let state = use_context::<AppState>();
     let safe = (state.safe)();
@@ -269,7 +269,7 @@ pub fn Mission() -> Element {
     let score = live.today.read().as_ref().map(|t| t.score.rate).unwrap_or(0.0);
 
     rsx! {
-        Page { title: "Mission", lead: "Why all of this, and how the week is going.",
+        div { class: "mc-growth",
             h2 { class: "pg-h", "Growth" }
             div { class: "ms-growth",
                 div { class: "stat", span { class: "stat-label", "XP this week" } span { class: "stat-value", "{xp.week}" } }
@@ -331,20 +331,6 @@ pub fn Mission() -> Element {
                             }
                         }
                     },
-                }
-            }
-            h2 { class: "pg-h", "Coming next" }
-            div { class: "ph-tiles",
-                for (name, line) in [
-                    ("Visualization board", "Your gallery for the morning read."),
-                    ("Version I want to be", "Swipe cards with progress."),
-                    ("New Me", "Editable cards of who you are becoming."),
-                    ("Mind OS", "A second brain for links, notes and images."),
-                ] {
-                    div { key: "{name}", class: "ph-tile ms-next",
-                        span { class: "ms-next-name", "{name}" }
-                        span { class: "ms-next-line", "{line}" }
-                    }
                 }
             }
         }

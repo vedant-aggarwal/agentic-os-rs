@@ -22,3 +22,10 @@ pub fn local_seed_path() -> PathBuf {
         .map(PathBuf::from)
         .unwrap_or_else(|| aos_home().join("seed.local.toml"))
 }
+
+/// Images for boards (Mission Control), unless `AOS_MEDIA` says otherwise. Never in the repo.
+pub fn media_dir() -> PathBuf {
+    std::env::var_os("AOS_MEDIA")
+        .map(PathBuf::from)
+        .unwrap_or_else(|| aos_home().join("media"))
+}

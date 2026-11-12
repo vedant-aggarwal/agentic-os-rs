@@ -13,6 +13,7 @@
 //! | `GET /api/devices`, `POST /api/devices/{id}/revoke` | yes | list / revoke devices |
 //! | `POST /mcp` | yes | MCP over streamable HTTP (JSON responses) |
 //! | `/api/voice/*` | yes | chunked audio upload and transcription (see `voice.rs`) |
+//! | `/api/media*` | yes | board images: upload, fetch from a link, serve (see `media.rs`) |
 
 use std::convert::Infallible;
 use std::time::Duration;
@@ -59,6 +60,8 @@ pub fn api_router(state: AppState) -> Router {
         .route("/mcp", post(mcp_post).get(mcp_get))
         .merge(crate::voice::routes())
         .layer(RequestBodyLimitLayer::new(2 * 1024 * 1024))
+        // Images carry their own 12 MB limit, so they join after the 2 MB layer.
+        .merge(crate::media::routes())
         .layer(TraceLayer::new_for_http())
         .layer(CatchPanicLayer::new())
         .with_state(state)

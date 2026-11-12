@@ -17,6 +17,7 @@ pub mod goals;
 pub mod habits;
 pub mod ids;
 pub mod journal;
+pub mod mission;
 pub mod model;
 pub mod mood;
 pub mod paths;

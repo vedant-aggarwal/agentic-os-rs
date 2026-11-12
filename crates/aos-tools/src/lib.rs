@@ -25,6 +25,7 @@
 
 pub mod cli_args;
 pub mod mcp;
+pub mod mission;
 pub mod registry;
 pub mod tools;
 
@@ -32,5 +33,7 @@ pub use registry::{Registry, Risk, Tool, ToolCtx, ToolError};
 
 /// The registry with every built-in tool.
 pub fn registry() -> Registry {
-    Registry::new(tools::all())
+    let mut all = tools::all();
+    all.extend(mission::tools());
+    Registry::new(all)
 }

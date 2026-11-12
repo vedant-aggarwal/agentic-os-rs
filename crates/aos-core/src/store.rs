@@ -100,6 +100,7 @@ impl Store {
         let mut writer = open_conn(&path, false)?;
         writer.pragma_update(None, "journal_mode", "WAL")?;
         let fresh = migrate(&mut writer)?;
+        crate::mission::ensure_schema(&writer)?;
 
         let readers = (0..READERS)
             .map(|_| open_conn(&path, true).map(Mutex::new))
