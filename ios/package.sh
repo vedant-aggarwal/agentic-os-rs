@@ -80,6 +80,27 @@ if [ ! -d "$APP/Frameworks/DioxusSwiftPlugins.framework" ] && [ "${ALLOW_NO_PUSH
   exit 1
 fi
 
+# Apple rejects (ITMS-90208) an embedded framework whose Info.plist lacks MinimumOSVersion or asks
+# for a different one than the app. dx's framework plist is minimal, so make each one complete.
+for fw in "$APP"/Frameworks/*.framework; do
+  [ -d "$fw" ] || continue
+  name=$(basename "$fw" .framework)
+  fpl="$fw/Info.plist"
+  [ -f "$fpl" ] || plutil -create xml1 "$fpl" 2>/dev/null || echo '<?xml version="1.0" encoding="UTF-8"?><plist version="1.0"><dict/></plist>' > "$fpl"
+  plutil -convert xml1 "$fpl"
+  fset() { $PB -c "Delete :$1" "$fpl" >/dev/null 2>&1 || true; $PB -c "Add :$1 $2 $3" "$fpl"; }
+  $PB -c "Print :CFBundleExecutable" "$fpl" >/dev/null 2>&1 || fset CFBundleExecutable string "$name"
+  $PB -c "Print :CFBundleIdentifier" "$fpl" >/dev/null 2>&1 || fset CFBundleIdentifier string "$BUNDLE_ID.$name"
+  fset CFBundlePackageType string FMWK
+  fset CFBundleShortVersionString string "$MARKETING_VERSION"
+  fset CFBundleVersion string "$BUILD_NUMBER"
+  fset MinimumOSVersion string "$MIN_IOS"
+  $PB -c "Delete :CFBundleSupportedPlatforms" "$fpl" >/dev/null 2>&1 || true
+  $PB -c "Add :CFBundleSupportedPlatforms array" -c "Add :CFBundleSupportedPlatforms:0 string iPhoneOS" "$fpl"
+  echo "framework $name: MinimumOSVersion=$MIN_IOS"
+  xcrun vtool -show-build "$fw/$name" 2>/dev/null | grep -E 'minos|platform' || true
+done
+
 # 1) Sign with the run's Apple Distribution identity, inside-out, profile embedded.
 cp "$PROFILE_PATH" "$APP/embedded.mobileprovision"
 rm -rf "$APP/_CodeSignature"
